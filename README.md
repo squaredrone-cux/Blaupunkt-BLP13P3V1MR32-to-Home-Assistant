@@ -6,6 +6,12 @@ Getestet mit einer **Blaupunkt BLP13P3V1MR32** (13 kW, Monoblock) und Home Assis
 
 *English summary: Home Assistant package for heat pumps using the PW58322 Modbus protocol (e.g. Blaupunkt BLP13P3V1MR32) via a Waveshare RS485-to-Ethernet gateway: all sensors, writable parameters, heating-curve and night-setback automations, efficiency statistics, a 14-day consumption forecast and a ready-made dashboard. Documentation is in German.*
 
+## Ansicht
+
+![Pufferkarte: Wärmepumpe, Puffer und Heizkreis mit Live-Temperaturen](docs/bilder/pufferkarte.png)
+
+![Energiebilanz pro Tag: Solar, Wärmepumpe und übriges Haus mit Gesamt- und Netzbezug](docs/bilder/energiebilanz.png)
+
 ## Was du bekommst
 
 - **Alle Messwerte**: Vor-/Rücklauf, Außen, Heißgas, Sauggas, Verdampfer, Verdichterfrequenz und -strom, Lüfter, Expansionsventile, DC-Pumpe, Status- und Fehlerbits
