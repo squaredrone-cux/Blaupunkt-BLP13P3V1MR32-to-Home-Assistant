@@ -4,6 +4,8 @@ Vollständige lokale Einbindung einer Luft/Wasser-Wärmepumpe mit Steuerung nach
 
 Getestet mit einer **Blaupunkt BLP13P3V1MR32** (13 kW, Monoblock) und Home Assistant 2026.10. Das Protokoll PW58322 wird auch von baugleichen Geräten anderer Marken genutzt, die dieselbe Steuerung verbauen. Bevor du schreibst, vergleiche die Registerliste mit deiner Anleitung.
 
+**Andere Protokolle:** Für PW58321, PW58332-2, PW58329 (CC1010B) und CG248075 gibt es eigene Modbus-Pakete im Ordner `protokolle/`. Sie sind aus den Hersteller-PDFs erzeugt und noch ungetestet, siehe [docs/protokolle.md](docs/protokolle.md).
+
 *English summary: Home Assistant package for heat pumps using the PW58322 Modbus protocol (e.g. Blaupunkt BLP13P3V1MR32) via a Waveshare RS485-to-Ethernet gateway: all sensors, writable parameters, heating-curve and night-setback automations, efficiency statistics, a 14-day consumption forecast and a ready-made dashboard. Documentation is in German.*
 
 ## Ansicht
@@ -95,6 +97,7 @@ Gateway-Einstellungen: 9600 Baud, 8N1, TCP-Server Port 502, Protokoll „Modbus 
 ## Dokumentation
 
 - [docs/dashboard.md](docs/dashboard.md) – Bilder aller Dashboard-Tabs
+- [docs/protokolle.md](docs/protokolle.md) – Pakete und Unterschiede für PW58321, PW58332-2, PW58329 und CG248075
 - [docs/modbus-register.md](docs/modbus-register.md) – alle Register mit Adresse, Skalierung und Bits
 - [docs/funktionsweise.md](docs/funktionsweise.md) – was die Automationen tun und wie die Prognose rechnet
 - [docs/erfahrungen.md](docs/erfahrungen.md) – Erkenntnisse aus dem ersten Betrieb

@@ -1456,3 +1456,48 @@ template:
           - action: homeassistant.update_entity
             target:
               entity_id: sensor.wp_urlaub_solltemperatur_ist
+
+  # ---------------- DC-Umwälzpumpe der WP (F4/F6/F10) ----------------
+  - select:
+      # DC-Umwälzpumpe der WP: F4 (0x0105) 1 = Automatik, 2 = Manuell
+      - name: WP DC Pumpe Modus
+        unique_id: wp_pkg_dc_pumpe_modus
+        options: "{{ ['Automatik', 'Manuell'] }}"
+        state: "{{ {'1': 'Automatik', '2': 'Manuell'}.get(states('sensor.wp_f4_dc_pumpe_modus_ist'), 'unbekannt') }}"
+        select_option:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 261
+              value: "{{ 2 if option == 'Manuell' else 1 }}"
+          - action: homeassistant.update_entity
+            target: { entity_id: sensor.wp_f4_dc_pumpe_modus_ist }
+
+  - number:
+      # F6 (0x0107): Drehzahl im Modus Manuell
+      - name: WP DC Pumpe Handdrehzahl
+        unique_id: wp_pkg_dc_pumpe_handdrehzahl
+        min: 40
+        max: 100
+        step: 1
+        unit_of_measurement: "%"
+        state: "{{ states('sensor.wp_f6_dc_pumpe_handdrehzahl_ist') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data: { hub: waermepumpe, slave: 1, address: 263, value: "{{ value | int }}" }
+          - action: homeassistant.update_entity
+            target: { entity_id: sensor.wp_f6_dc_pumpe_handdrehzahl_ist }
+      # F10 (0x010B): Soll-Spreizung im Modus Automatik
+      - name: WP DC Pumpe Ziel-Spreizung
+        unique_id: wp_pkg_dc_pumpe_ziel_spreizung
+        min: 3
+        max: 10
+        step: 1
+        unit_of_measurement: "K"
+        state: "{{ states('sensor.wp_f10_dc_pumpe_soll_spreizung_ist') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data: { hub: waermepumpe, slave: 1, address: 267, value: "{{ value | int }}" }
+          - action: homeassistant.update_entity
+            target: { entity_id: sensor.wp_f10_dc_pumpe_soll_spreizung_ist }
