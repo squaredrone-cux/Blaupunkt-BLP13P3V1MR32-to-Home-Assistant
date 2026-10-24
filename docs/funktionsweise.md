@@ -17,6 +17,8 @@ Die beiden Blueprints ergänzen das:
 - **Thermostat nach Raumsensor**: Die Thermostate regeln auf die echte Raumtemperatur statt auf ihren Fühler am Heizkörper.
 - **Heizkreispumpe folgt Wärmepumpe**: Die Pumpe hinter einem Trennpuffer läuft nur, solange die WP an ist.
 
+![Heizkurve in 5 Stufen](bilder/heizkurve.png)
+
 ## Warum Nachtabsenkung statt Abschalten
 
 Eine abgeschaltete WP muss morgens das ganze Haus mit hoher Leistung und schlechtem COP wieder aufheizen. Eine um eine Stufe abgesenkte Heizkurve (−2 K Vorlauf) spart weniger auf dem Papier, vermeidet aber diese Spitze. Ob es sich lohnt, zeigt der Vergleich der kWh je Heizgradtag vor und nach der Umstellung.
@@ -32,6 +34,8 @@ Ein Heizgradtag ist 1 K Unterschied zwischen 20 °C und dem Tagesmittel außen. 
 ## Prognose
 
 Die Prognose rechnet `kWh/Tag = STEIGUNG × (HEIZGRENZE − Tagesmittel)` für jeden der 14 Vorhersagetage von Open-Meteo. Die Steigung wird mit dem 14-Tage-Mittel der kWh je Heizgradtag skaliert, die Prognose folgt also der aktuellen Effizienz. Die drei Modellwerte stehen oben in `custom_templates/wp_prognose.jinja` und müssen an das eigene Haus angepasst werden.
+
+![Prognose für 14 Tage](bilder/prognose.png)
 
 ## Leitungsverluste
 

@@ -8,7 +8,11 @@ Getestet mit einer **Blaupunkt BLP13P3V1MR32** (13 kW, Monoblock) und Home Assis
 
 ## Ansicht
 
+![Aufbau: Wärmepumpe, Puffer, Heizkreis und Räume mit den Datenwegen zu Home Assistant](docs/bilder/aufbau.png)
+
 ![Pufferkarte: Wärmepumpe, Puffer und Heizkreis mit Live-Temperaturen](docs/bilder/pufferkarte.png)
+
+![Verbrauchsprognose für 14 Tage aus der Wettervorhersage](docs/bilder/prognose.png)
 
 ![Energiebilanz pro Tag: Solar, Wärmepumpe und übriges Haus mit Gesamt- und Netzbezug](docs/bilder/energiebilanz.png)
 
