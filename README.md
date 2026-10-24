@@ -34,7 +34,7 @@ Alle neun Tabs des Dashboards: [docs/dashboard.md](docs/dashboard.md)
 - **Auswertung**: Laufzeit, Starts, Abtauungen, mittlere Laufzeit, Leitungsverluste außen ↔ Puffer, Heizstab-Energie, Puffer-Stillstandsverlust
 - **Prognose**: Stromverbrauch der nächsten 7 und 14 Tage aus der Open-Meteo-Vorhersage, kalibriert an der eigenen Effizienz
 - **Optional**: Pufferfühler über ein Wellpro-Modul, Energiebilanz Haus/PV/Netz/WP pro Tag und Monat
-- **Dashboard** mit animierter Pufferkarte und Statistik-Unterseiten
+- **Dashboard** mit animierter Pufferkarte, Prognose-Diagramm und Statistik-Unterseiten
 - **Blueprints**: Thermostat nach Raumsensor regeln, Heizkreispumpe folgt Wärmepumpe
 
 ## Hardware
@@ -80,6 +80,7 @@ Gateway-Einstellungen: 9600 Baud, 8N1, TCP-Server Port 502, Protokoll „Modbus 
 7. **Ressourcen** anlegen (Einstellungen › Dashboards › ⋮ › Ressourcen, Typ JavaScript-Modul):
    - `/local/puffer-speicher-card.js`
    - `/local/energiebilanz-card.js`
+   - `/local/prognose-card.js`
 8. Aus **HACS** die Karte `ring-tile` installieren. Das Dashboard nutzt sie.
 9. **Dashboard** anlegen: neues Dashboard › ⋮ › Raw-Konfigurationseditor › Inhalt von `dashboards/waermepumpe.yaml` einfügen.
 10. Für jedes Heizkörperthermostat eine Automation aus dem Blueprint anlegen (optional).

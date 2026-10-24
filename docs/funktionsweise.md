@@ -37,6 +37,15 @@ Die Prognose rechnet `kWh/Tag = STEIGUNG × (HEIZGRENZE − Tagesmittel)` für j
 
 ![Prognose für 14 Tage](bilder/prognose.png)
 
+Im Dashboard zeigt die Karte `custom:prognose-card` diese Ansicht. Wer die Modellwerte in `wp_prognose.jinja` ändert, trägt sie auch in der Karte ein:
+
+```yaml
+type: custom:prognose-card
+steigung: 2.6
+heizgrenze: 18.7
+basis: 2.3
+```
+
 ## Leitungsverluste
 
 Mit Pufferfühlern lassen sich die WP-eigenen Fühler (außen am Gerät) mit den Fühlern am Puffer (innen) vergleichen. `sensor.wp_leitung_verlust_vorlauf` und `_rucklauf` zeigen die Differenz nur bei stabil laufendem Verdichter. Aussagekräftig wird das erst bei Frost. Mehr als 1 K Unterschied auf einer kurzen Leitung deutet auf schlechte Dämmung hin.

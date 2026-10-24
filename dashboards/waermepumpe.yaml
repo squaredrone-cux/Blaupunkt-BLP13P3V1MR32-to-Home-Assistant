@@ -1,5 +1,5 @@
 # Dashboard „Wärmepumpe“ – im Dashboard: ⋮ > Bearbeiten > ⋮ > Raw-Konfigurationseditor, Inhalt ersetzen.
-# Benötigt die Ressourcen /local/puffer-speicher-card.js und /local/energiebilanz-card.js (JavaScript-Modul)
+# Benötigt die Ressourcen /local/puffer-speicher-card.js, /local/energiebilanz-card.js und /local/prognose-card.js (JavaScript-Modul)
 # und aus HACS die Karte ring-tile (custom:ring-tile), siehe README.
 title: Wärmepumpe NEU
 views:
@@ -1264,24 +1264,10 @@ views:
       color: amber
       grid_options:
         columns: 6
-    - type: markdown
+    - type: custom:prognose-card
       grid_options:
         columns: full
-      content: '{% from ''wp_prognose.jinja'' import wp_kwh_tag %}{% set d = state_attr(''sensor.wetterprognose_14_tage'',''daily'') %}{% set
-        f = states(''sensor.wp_kwh_pro_heizgradtag_mittel_14_tage'') %}{% set tage = [''Mo'',''Di'',''Mi'',''Do'',''Fr'',''Sa'',''So''] %}{% if
-        d %}| Tag | Außen Ø (min) | Strom WP | |
-
-        |---|---|---|---|
-
-        {% for i in range(d.time | count) %}{% set k = wp_kwh_tag(d.temperature_2m_mean[i], f) | float %}{% set dt = as_datetime(d.time[i]) %}|
-        {{ tage[dt.weekday()] }} {{ dt.strftime(''%d.%m.'') }} | {{ d.temperature_2m_mean[i] }} °C ({{ d.temperature_2m_min[i] }}) | **{{ k }}
-        kWh** | {{ ''█'' * ((k / 4) | round(0) | int) }} |
-
-        {% endfor %}
-
-        Modell aus deinen Messwerten: **kWh/Tag ≈ 2,6 × (18,7 − Tagesmittel)**, angepasst an die aktuelle Effizienz ({{ f }} kWh pro Heizgradtag,
-        14-Tage-Mittel). Wetter: Open-Meteo, alle 3 h aktualisiert. Ab Tag 8 wird die Wetterprognose deutlich unsicherer.{% else %}Wetterprognose
-        noch nicht verfügbar.{% endif %}'
+    column_span: 2
   - type: grid
     cards:
     - type: heading
