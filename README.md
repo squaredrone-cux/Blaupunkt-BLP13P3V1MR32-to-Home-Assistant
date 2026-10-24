@@ -8,6 +8,10 @@ Getestet mit einer **Blaupunkt BLP13P3V1MR32** (13 kW, Monoblock) und Home Assis
 
 ## Ansicht
 
+![Dashboard – Übersicht](docs/bilder/dashboard-uebersicht.png)
+
+Alle neun Tabs des Dashboards: [docs/dashboard.md](docs/dashboard.md)
+
 ![Aufbau: Wärmepumpe, Puffer, Heizkreis und Räume mit den Datenwegen zu Home Assistant](docs/bilder/aufbau.png)
 
 ![Pufferkarte: Wärmepumpe, Puffer und Heizkreis mit Live-Temperaturen](docs/bilder/pufferkarte.png)
@@ -89,6 +93,7 @@ Gateway-Einstellungen: 9600 Baud, 8N1, TCP-Server Port 502, Protokoll „Modbus 
 
 ## Dokumentation
 
+- [docs/dashboard.md](docs/dashboard.md) – Bilder aller Dashboard-Tabs
 - [docs/modbus-register.md](docs/modbus-register.md) – alle Register mit Adresse, Skalierung und Bits
 - [docs/funktionsweise.md](docs/funktionsweise.md) – was die Automationen tun und wie die Prognose rechnet
 - [docs/erfahrungen.md](docs/erfahrungen.md) – Erkenntnisse aus dem ersten Betrieb
