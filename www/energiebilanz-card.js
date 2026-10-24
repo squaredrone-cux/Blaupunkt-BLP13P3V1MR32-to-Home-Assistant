@@ -34,8 +34,9 @@ class EnergiebilanzCard extends HTMLElement {
     const src = this._hass.states[monate ? "sensor.energiebilanz_monate" : "sensor.energiebilanz_tage"];
     const liste = (src && src.attributes[monate ? "monate" : "tage"]) || [];
     const sfx = monate ? "monat" : "tag";
+    const jetzt = new Date();
     const live = {
-      k: monate ? new Date().toISOString().slice(0, 7) : "heute",
+      k: monate ? `${jetzt.getFullYear()}-${String(jetzt.getMonth() + 1).padStart(2, "0")}` : "heute",
       live: true,
       h: this._num(`sensor.haus_verbrauch_${sfx}`),
       p: this._num(`sensor.pv_ertrag_${sfx}`),
@@ -43,10 +44,36 @@ class EnergiebilanzCard extends HTMLElement {
       e: this._num(`sensor.einspeisung_${sfx}`),
       w: this._num(monate ? "sensor.wp_energie_monat" : "sensor.wp_energie_tag"),
     };
-    const alt = liste.slice(monate ? -11 : -29).reverse().map(r => ({
+    let alle = liste.map(r => ({
       k: monate ? r.m : r.d, h: r.h || 0, p: r.p || 0, n: r.n || 0, e: r.e || 0, w: r.w,
     }));
+    if (!monate) alle = this._luecken(alle);
+    const alt = alle.slice(monate ? -11 : -29).reverse();
     return [live, ...alt];
+  }
+
+  // Datenlücken: Fehlen Tage zwischen zwei Einträgen, enthält der Tag nach der Lücke
+  // den Zuwachs aller fehlenden Tage. Er wird gleichmäßig auf die Lücke verteilt
+  // und als geschätzt markiert (≈ am Datum).
+  _luecken(liste) {
+    const tag = 86400000;
+    const ms = k => Date.parse(k + "T12:00:00Z");
+    const iso = t => new Date(t).toISOString().slice(0, 10);
+    const aus = [];
+    liste.forEach((r, i) => {
+      const vor = i > 0 ? liste[i - 1] : null;
+      const n = vor ? Math.round((ms(r.k) - ms(vor.k)) / tag) : 1;
+      if (n <= 1 || n > 31) { aus.push(r); return; }
+      const teil = v => Math.round((v / n) * 10) / 10;
+      for (let j = n - 1; j >= 0; j--) {
+        aus.push({
+          k: iso(ms(r.k) - j * tag), geschaetzt: true,
+          h: teil(r.h), p: teil(r.p), n: teil(r.n), e: teil(r.e),
+          w: r.w == null ? r.w : teil(r.w),
+        });
+      }
+    });
+    return aus;
   }
 
   _label(r) {
@@ -59,7 +86,7 @@ class EnergiebilanzCard extends HTMLElement {
     if (r.live) return "heute";
     const d = new Date(r.k + "T12:00:00");
     const wt = ["So","Mo","Di","Mi","Do","Fr","Sa"][d.getDay()];
-    return `${wt} ${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.`;
+    return `${wt} ${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${r.geschaetzt ? " ≈" : ""}`;
   }
 
   _split(r) {
@@ -101,11 +128,11 @@ class EnergiebilanzCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         ha-card { padding: 12px 14px 14px; }
-        .head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+        .head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; gap:8px; flex-wrap:wrap; }
         .title { font-size: 16px; font-weight: 500; color: var(--primary-text-color); }
         .legend { display:flex; gap:10px; flex-wrap:wrap; font-size:12px; color: var(--secondary-text-color); }
         .legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px; vertical-align:-1px; }
-        .cols { display:grid; grid-template-columns: 74px 1fr 58px 58px; font-size:11px; color: var(--secondary-text-color); margin-bottom:2px; }
+        .cols { display:grid; grid-template-columns: 74px 1fr 58px 58px; gap:6px; font-size:11px; color: var(--secondary-text-color); margin-bottom:2px; }
         .cols .r { text-align:right; }
         .row { display:grid; grid-template-columns: 74px 1fr 58px 58px; align-items:center; gap:6px; margin:3px 0; }
         .lbl { font-size:12.5px; color: var(--primary-text-color); white-space:nowrap; font-variant-numeric: tabular-nums; }
@@ -123,6 +150,8 @@ class EnergiebilanzCard extends HTMLElement {
         .tot.netz { color:#e5383b; }
         .row.sum .tot { font-weight:700; }
         .row.live .lbl { font-weight:600; }
+        .row.geschaetzt .lbl { font-style:italic; color: var(--secondary-text-color); }
+        .row.geschaetzt .bar { opacity:.7; }
         .row.sum { margin-top:8px; padding-top:8px; border-top:1px solid var(--divider-color); }
         .row.sum .lbl { font-weight:700; }
         .note { margin-top:8px; font-size:11px; color: var(--secondary-text-color); }
@@ -132,9 +161,9 @@ class EnergiebilanzCard extends HTMLElement {
           <div class="legend"><span><i style="background:#f9c74f"></i>${this._config.variante === "verbraucher" ? "Solar-Ertrag (dünner Balken)" : "Solar"}</span><span><i style="background:#3a86ff"></i>Wärmepumpe</span><span><i style="background:#8d99ae"></i>übriges Haus</span></div>
         </div>
         <div class="cols"><div>${monate ? "Monat" : "Tag"}</div><div>Verbrauch gesamt (kWh)</div><div class="r">Gesamt</div><div class="r" style="color:#e5383b">Netz</div></div>
-        ${rows.map((r, i) => zeile(r, max, i === 0 ? "live" : "")).join("")}
+        ${rows.map((r, i) => zeile(r, max, i === 0 ? "live" : (r.geschaetzt ? "geschaetzt" : ""))).join("")}
         ${zeile({ h: sum.h, n: sum.n, p: sum.p, w: sum.w }, Math.max(sum.h, vb ? sum.p : 0), "sum")}
-        <div class="note">${this._config.variante === "verbraucher" ? "Oberer Balken = Verbrauch (Wärmepumpe + übriges Haus), unterer gelber Balken = Solar-Ertrag gesamt." : "Solar = selbst genutzter Solarstrom (Verbrauch − Netzbezug)."} ${this._config.hinweis ? this._config.hinweis : ""}</div>
+        <div class="note">${this._config.variante === "verbraucher" ? "Oberer Balken = Verbrauch (Wärmepumpe + übriges Haus), unterer gelber Balken = Solar-Ertrag gesamt." : "Solar = selbst genutzter Solarstrom (Verbrauch − Netzbezug)."} ${rows.some(r => r.geschaetzt) ? "≈ = Datenlücke, Zuwachs gleichmäßig auf die fehlenden Tage verteilt (geschätzt)." : ""} ${this._config.hinweis ? this._config.hinweis : ""}</div>
       </ha-card>`;
   }
 }
