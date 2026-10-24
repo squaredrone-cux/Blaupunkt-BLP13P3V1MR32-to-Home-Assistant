@@ -1,0 +1,138 @@
+blueprint:
+  name: Heizkörperthermostat nach Raumsensor regeln
+  description: >
+    Lässt ein Heizkörperthermostat (z. B. Tuya/Moes-TRV über Zigbee2MQTT) auf die
+    Temperatur eines Raumsensors regeln statt auf seinen eigenen Fühler am Heizkörper.
+    Alle 10 Minuten wird die Kalibrierung (Temperatur-Offset) des Thermostats so
+    nachgeführt, dass es die Raumtemperatur „sieht“ – nur bei mindestens 0,5 K
+    Abweichung, damit die Batterie geschont wird. Die Solltemperatur kommt aus einem
+    Helfer und wird nachts auf einen Höchstwert begrenzt.
+
+    Pro Thermostat eine Automation aus diesem Blueprint anlegen.
+  domain: automation
+  input:
+    thermostat:
+      name: Thermostat
+      selector:
+        entity:
+          filter: { domain: climate }
+    kalibrierung:
+      name: Kalibrierung des Thermostats
+      description: Zahl-Entität für den Temperatur-Offset, z. B. number.…_local_temperature_calibration
+      selector:
+        entity:
+          filter: { domain: number }
+    fuehler_thermostat:
+      name: Gemessene Temperatur des Thermostats
+      description: Sensor mit der Temperatur, die das Thermostat selbst meldet (einschließlich aktueller Kalibrierung), z. B. sensor.…_local_temperature
+      selector:
+        entity:
+          filter: { domain: sensor, device_class: temperature }
+    raumsensor:
+      name: Raumsensor
+      selector:
+        entity:
+          filter: { domain: sensor, device_class: temperature }
+    soll:
+      name: Solltemperatur (Helfer)
+      selector:
+        entity:
+          filter: { domain: input_number }
+    nacht_max:
+      name: Nachts höchstens (Helfer)
+      selector:
+        entity:
+          filter: { domain: input_number }
+    nacht_beginn:
+      name: Nacht beginnt
+      default: "22:30:00"
+      selector:
+        time: {}
+    nacht_ende:
+      name: Nacht endet
+      default: "07:00:00"
+      selector:
+        time: {}
+    freigabe:
+      name: Ein/Aus-Schalter (Helfer)
+      description: input_boolean, mit dem sich die Raumregelung abschalten lässt
+      selector:
+        entity:
+          filter: { domain: input_boolean }
+
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: time_pattern
+    minutes: /10
+  - trigger: time
+    at: !input nacht_beginn
+  - trigger: time
+    at: !input nacht_ende
+  - trigger: state
+    entity_id:
+      - !input soll
+      - !input nacht_max
+  - trigger: state
+    entity_id: !input freigabe
+    to: "on"
+
+conditions:
+  - condition: state
+    entity_id: !input freigabe
+    state: "on"
+
+variables:
+  trv: !input thermostat
+  cal: !input kalibrierung
+  lokal: !input fuehler_thermostat
+  raum: !input raumsensor
+  soll: !input soll
+  nacht_max_e: !input nacht_max
+  beginn: !input nacht_beginn
+  ende: !input nacht_ende
+
+actions:
+  - variables:
+      ist_nacht: >
+        {% set m = now().hour * 60 + now().minute %}
+        {% set b = (beginn[0:2] | int) * 60 + (beginn[3:5] | int) %}
+        {% set e = (ende[0:2] | int) * 60 + (ende[3:5] | int) %}
+        {{ (m >= b or m < e) if b > e else (b <= m < e) }}
+      t_raum: "{{ states(raum) | float(none) }}"
+      t_lokal: "{{ states(lokal) | float(none) }}"
+      k_alt: "{{ states(cal) | float(0) }}"
+      soll_tag: "{{ states(soll) | float(none) }}"
+      nacht_max: "{{ states(nacht_max_e) | float(none) }}"
+  - variables:
+      soll_wert: >
+        {% if soll_tag is none %}{{ none }}
+        {% elif ist_nacht and nacht_max is not none %}{{ [soll_tag, nacht_max] | min }}
+        {% else %}{{ soll_tag }}{% endif %}
+      k_neu: >
+        {% if t_raum is not none and t_lokal is not none %}
+        {{ [[ (t_raum - (t_lokal - k_alt)) | round(1), -10 ] | max, 10 ] | min }}
+        {% else %}{{ none }}{% endif %}
+  - alias: Kalibrierung nachführen (ab 0,5 K Abweichung)
+    if:
+      - condition: template
+        value_template: "{{ k_neu is not none and (k_neu - k_alt) | abs >= 0.5 }}"
+    then:
+      - action: number.set_value
+        continue_on_error: true
+        target:
+          entity_id: "{{ cal }}"
+        data:
+          value: "{{ k_neu }}"
+  - alias: Solltemperatur übernehmen (nachts begrenzt)
+    if:
+      - condition: template
+        value_template: "{{ soll_wert is not none and (state_attr(trv, 'temperature') | float(0)) != soll_wert }}"
+    then:
+      - action: climate.set_temperature
+        continue_on_error: true
+        target:
+          entity_id: "{{ trv }}"
+        data:
+          temperature: "{{ soll_wert }}"

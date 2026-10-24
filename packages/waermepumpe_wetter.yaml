@@ -1,0 +1,20 @@
+# ============================================================================
+# 14-Tage-Temperaturprognose von Open-Meteo (kostenlos, ohne API-Schlüssel)
+# Die Koordinaten kommen aus der Zone "Home" – nichts einzutragen.
+# ============================================================================
+rest:
+  - resource_template: >-
+      https://api.open-meteo.com/v1/forecast?latitude={{ state_attr('zone.home', 'latitude') | round(3) }}&longitude={{ state_attr('zone.home', 'longitude') | round(3) }}&daily=temperature_2m_mean,temperature_2m_min,temperature_2m_max&forecast_days=14&timezone=auto
+    method: GET
+    scan_interval: 10800
+    timeout: 30
+    sensor:
+      - name: Wetterprognose 14 Tage
+        unique_id: wp_pkg_open_meteo_prognose_14_tage
+        icon: mdi:weather-partly-cloudy
+        unit_of_measurement: "°C"
+        value_template: >-
+          {{ (value_json.daily.temperature_2m_mean | sum / value_json.daily.temperature_2m_mean | count) | round(1)
+             if value_json.daily is defined else none }}
+        json_attributes:
+          - daily

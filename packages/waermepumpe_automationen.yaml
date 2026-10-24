@@ -1,0 +1,366 @@
+# ============================================================================
+# Wärmepumpe PW58322 – Automationen
+# ============================================================================
+# Jede Automation hat einen eigenen Ein/Aus-Helfer (input_boolean).
+# Automationen aus Paketen sind in der Oberfläche nicht editierbar; wer sie
+# anpassen will, kopiert sie in den Automations-Editor (YAML-Modus).
+# ============================================================================
+
+automation:
+- id: wp_pkg_heizkurve_stufe
+  alias: WP Heizkurve Stufe übernehmen
+  description: Setzt P23 (Heizkurve) der Wärmepumpe passend zur gewählten Stufe. Normal = 25, jede Stufe verschiebt
+    die Kurve um 2 °C (21–29). Schreibt nur, wenn sich der Wert wirklich ändert (Flash der Wärmepumpe schonen).
+  triggers:
+  - entity_id: input_select.wp_heizkurve_stufe
+    not_from:
+    - unavailable
+    - unknown
+    not_to:
+    - unavailable
+    - unknown
+    trigger: state
+  conditions:
+  - alias: Nicht beim ersten Anlegen des Helfers schreiben
+    condition: template
+    value_template: '{{ trigger.from_state is not none }}'
+  - condition: template
+    value_template: '{{ ziel | int(0) > 0 and (ziel | float(0)) != (states(''number.wp_p23_heizkurve_aussentemp'')
+      | float(0)) }}'
+  actions:
+  - action: number.set_value
+    data:
+      value: '{{ ziel }}'
+    target:
+      entity_id: number.wp_p23_heizkurve_aussentemp
+  mode: restart
+  variables:
+    ziel: '{{ {''Sehr sparsam (−4 °C)'': 21, ''Sparsam (−2 °C)'': 23, ''Normal'': 25, ''Wärmer (+2 °C)'': 27, ''Viel
+      wärmer (+4 °C)'': 29}.get(trigger.to_state.state, 0) }}'
+- id: wp_pkg_zeitplan
+  alias: WP Zeitplan
+  description: Schaltet die Wärmepumpe (WP Power) nach dem Zeitplan 'WP Heizzeiten' ein und aus. Nur aktiv, wenn
+    'WP Zeitplan aktiv' an ist. Schaltet nur bei Beginn/Ende eines Zeitfensters und beim Start von Home Assistant,
+    damit manuelles Ein-/Ausschalten zwischendurch respektiert wird.
+  triggers:
+  - entity_id: schedule.wp_heizzeiten
+    to:
+    - 'on'
+    - 'off'
+    trigger: state
+  - entity_id: input_boolean.wp_zeitplan_aktiv
+    to: 'on'
+    trigger: state
+  - event: start
+    trigger: homeassistant
+  conditions:
+  - condition: state
+    entity_id: input_boolean.wp_zeitplan_aktiv
+    state: 'on'
+  actions:
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: schedule.wp_heizzeiten
+        state: 'on'
+      - condition: state
+        entity_id: switch.wp_power
+        state: 'off'
+      sequence:
+      - action: switch.turn_on
+        target:
+          entity_id: switch.wp_power
+    - conditions:
+      - condition: state
+        entity_id: schedule.wp_heizzeiten
+        state: 'off'
+      - condition: state
+        entity_id: switch.wp_power
+        state: 'on'
+      sequence:
+      - action: switch.turn_off
+        target:
+          entity_id: switch.wp_power
+  mode: restart
+- id: wp_pkg_modus_automatisch
+  alias: WP Modus automatisch (ECO / Smart nach Außentemperatur)
+  description: Schaltet die Heiz-Wärmepumpe auf Smart, wenn es 30 min unter 'WP Smart unter' (Standard 3 °C) ist,
+    und auf ECO, wenn es 60 min über 'WP ECO ueber' (Standard 5 °C) ist. Nutzt die gefilterte Außentemperatur (Abtau-Spitzen
+    ausgeblendet); die Wartezeiten filtern zusätzlich die Sprünge des Außenfühlers in Verdichterpausen (bis +3 K).
+    Nur aktiv, wenn 'WP Modus Automatik' an ist; beim Einschalten wird sofort abgeglichen. Powerful wird nie automatisch
+    überschrieben. Schreibt nur, wenn sich der Modus wirklich ändert (Flash der WP schonen).
+  triggers:
+  - below: input_number.wp_smart_unter
+    entity_id: sensor.wp_aussentemperatur_gefiltert
+    for:
+      minutes: 30
+    id: smart
+    trigger: numeric_state
+  - above: input_number.wp_eco_ueber
+    entity_id: sensor.wp_aussentemperatur_gefiltert
+    for:
+      minutes: 60
+    id: eco
+    trigger: numeric_state
+  - entity_id: input_boolean.wp_modus_automatik
+    id: abgleich
+    to: 'on'
+    trigger: state
+  conditions:
+  - condition: state
+    entity_id: input_boolean.wp_modus_automatik
+    state: 'on'
+  - alias: Powerful nie automatisch überschreiben
+    condition: not
+    conditions:
+    - condition: state
+      entity_id: select.wp_modus
+      state: Powerful
+  actions:
+  - choose:
+    - alias: Kalt → Smart
+      conditions:
+      - condition: or
+        conditions:
+        - condition: trigger
+          id: smart
+        - condition: and
+          conditions:
+          - condition: trigger
+            id: abgleich
+          - below: input_number.wp_smart_unter
+            condition: numeric_state
+            entity_id: sensor.wp_aussentemperatur_gefiltert
+      - condition: not
+        conditions:
+        - condition: state
+          entity_id: select.wp_modus
+          state: Smart
+      sequence:
+      - action: select.select_option
+        data:
+          option: Smart
+        target:
+          entity_id: select.wp_modus
+    - alias: Mild → ECO
+      conditions:
+      - condition: or
+        conditions:
+        - condition: trigger
+          id: eco
+        - condition: and
+          conditions:
+          - condition: trigger
+            id: abgleich
+          - above: input_number.wp_eco_ueber
+            condition: numeric_state
+            entity_id: sensor.wp_aussentemperatur_gefiltert
+      - condition: not
+        conditions:
+        - condition: state
+          entity_id: select.wp_modus
+          state: ECO
+      sequence:
+      - action: select.select_option
+        data:
+          option: ECO
+        target:
+          entity_id: select.wp_modus
+  mode: single
+- id: wp_pkg_nachtabsenkung
+  alias: WP Nachtabsenkung
+  description: 'Senkt nachts die Heizkurve ab: Zu Beginn (WP Nachtabsenkung Beginn) wird die aktuelle Stufe gemerkt
+    und auf ''WP Nachtabsenkung Stufe'' gestellt, zum Ende (WP Nachtabsenkung Ende) wird die gemerkte Stufe zurückgesetzt.
+    Hat jemand nachts die Stufe von Hand geändert, bleibt diese stehen. Ausschalten des Schalters beendet eine laufende
+    Absenkung sofort. Nach einem HA-Neustart wird der richtige Zustand wiederhergestellt.'
+  triggers:
+  - at: input_datetime.wp_nachtabsenkung_beginn
+    id: beginn
+    trigger: time
+  - at: input_datetime.wp_nachtabsenkung_ende
+    id: ende
+    trigger: time
+  - entity_id: input_boolean.wp_nachtabsenkung
+    from:
+    - 'on'
+    - 'off'
+    id: schalter
+    to:
+    - 'on'
+    - 'off'
+    trigger: state
+  - event: start
+    id: neustart
+    trigger: homeassistant
+  actions:
+  - choose:
+    - alias: Absenkung starten
+      conditions:
+      - condition: state
+        entity_id: input_boolean.wp_nachtabsenkung
+        state: 'on'
+      - condition: or
+        conditions:
+        - condition: trigger
+          id: beginn
+        - after: input_datetime.wp_nachtabsenkung_beginn
+          before: input_datetime.wp_nachtabsenkung_ende
+          condition: time
+      sequence:
+      - if:
+        - condition: template
+          value_template: '{{ states(''input_select.wp_heizkurve_stufe'') != states(''input_select.wp_nachtabsenkung_stufe'')
+            }}'
+        then:
+        - action: input_text.set_value
+          data:
+            value: '{{ states(''input_select.wp_heizkurve_stufe'') }}'
+          target:
+            entity_id: input_text.wp_heizkurve_tagesstufe_gemerkt
+        - action: input_select.select_option
+          data:
+            option: '{{ states(''input_select.wp_nachtabsenkung_stufe'') }}'
+          target:
+            entity_id: input_select.wp_heizkurve_stufe
+    default:
+    - alias: Absenkung beenden (nur wenn eine Stufe gemerkt ist)
+      if:
+      - condition: template
+        value_template: '{{ states(''input_text.wp_heizkurve_tagesstufe_gemerkt'') not in ['''', ''unknown'', ''unavailable'']
+          }}'
+      then:
+      - if:
+        - condition: template
+          value_template: '{{ states(''input_select.wp_heizkurve_stufe'') == states(''input_select.wp_nachtabsenkung_stufe'')
+            }}'
+        then:
+        - action: input_select.select_option
+          data:
+            option: '{{ states(''input_text.wp_heizkurve_tagesstufe_gemerkt'') }}'
+          target:
+            entity_id: input_select.wp_heizkurve_stufe
+      - action: input_text.set_value
+        data:
+          value: ''
+        target:
+          entity_id: input_text.wp_heizkurve_tagesstufe_gemerkt
+  mode: queued
+- id: wp_pkg_heizkurve_automatisch
+  alias: WP Heizkurve automatisch anpassen
+  description: Vergleicht täglich um 21:00 das Tagesmittel (09–21 Uhr) der Raumtemperatur (Sensor 'Raumtemperatur
+    Referenz') mit der Wunsch-Raumtemperatur. Mehr als 0,7 K zu warm → Heizkurve eine Stufe sparsamer, mehr als
+    0,5 K zu kalt → eine Stufe wärmer. Höchstens eine Stufe pro Tag. Läuft nicht während der Nachtabsenkung, nicht
+    wenn es im Mittel 15 °C oder wärmer ist und erst, wenn das Tagesmittel mindestens 10 Stunden Messwerte hat.
+    Ein- und ausschaltbar über 'Heizkurve automatisch anpassen'. Jede Änderung steht im Logbuch.
+  triggers:
+  - at: '21:00:00'
+    trigger: time
+  conditions:
+  - condition: state
+    entity_id: input_boolean.heizkurve_automatisch_anpassen
+    state: 'on'
+  - alias: Keine laufende Nachtabsenkung
+    condition: state
+    entity_id: input_text.wp_heizkurve_tagesstufe_gemerkt
+    state: ''
+  - alias: Heizperiode
+    below: 15
+    condition: numeric_state
+    entity_id: sensor.wp_aussentemperatur_mittel_24h
+  - above: 0.8
+    alias: Tagesmittel hat genug Daten
+    attribute: age_coverage_ratio
+    condition: numeric_state
+    entity_id: sensor.raumtemperatur_referenz_mittel_12h
+  actions:
+  - variables:
+      stufen:
+      - Sehr sparsam (−4 °C)
+      - Sparsam (−2 °C)
+      - Normal
+      - Wärmer (+2 °C)
+      - Viel wärmer (+4 °C)
+  - variables:
+      ist: '{{ states(''sensor.raumtemperatur_referenz_mittel_12h'') | float(none) }}'
+  - variables:
+      wunsch: '{{ states(''input_number.wunsch_raumtemperatur'') | float(none) }}'
+  - variables:
+      aktuell: '{{ states(''input_select.wp_heizkurve_stufe'') }}'
+  - variables:
+      index: '{{ stufen.index(aktuell) if aktuell in stufen else -1 }}'
+  - choose:
+    - alias: Zu warm → eine Stufe sparsamer
+      conditions:
+      - condition: template
+        value_template: '{{ ist is not none and wunsch is not none and index > 0 and ist > wunsch + 0.7 }}'
+      sequence:
+      - action: input_select.select_option
+        data:
+          option: '{{ stufen[index - 1] }}'
+        target:
+          entity_id: input_select.wp_heizkurve_stufe
+      - action: logbook.log
+        data:
+          entity_id: input_select.wp_heizkurve_stufe
+          message: Räume im Tagesmittel {{ ist }} °C (Wunsch {{ wunsch }} °C) → {{ aktuell }} auf {{ stufen[index
+            - 1] }}
+          name: Heizkurve automatisch
+    - alias: Zu kalt → eine Stufe wärmer
+      conditions:
+      - condition: template
+        value_template: '{{ ist is not none and wunsch is not none and index >= 0 and index < 4 and ist < wunsch
+          - 0.5 }}'
+      sequence:
+      - action: input_select.select_option
+        data:
+          option: '{{ stufen[index + 1] }}'
+        target:
+          entity_id: input_select.wp_heizkurve_stufe
+      - action: logbook.log
+        data:
+          entity_id: input_select.wp_heizkurve_stufe
+          message: Räume im Tagesmittel {{ ist }} °C (Wunsch {{ wunsch }} °C) → {{ aktuell }} auf {{ stufen[index
+            + 1] }}
+          name: Heizkurve automatisch
+  mode: single
+- id: wp_pkg_kwh_pro_heizgradtag
+  alias: WP kWh pro Heizgradtag berechnen
+  description: Berechnet jeden Abend um 23:59 die Heizgradtage des Tages (20 °C minus Tagesmittel außen, nur wenn
+    das Tagesmittel unter 15 °C liegt) und den Stromverbrauch der Heiz-WP pro Heizgradtag. Damit lassen sich Tage
+    mit unterschiedlichem Wetter fair vergleichen. Unter 2 Heizgradtagen wird kein Wert berechnet (zu ungenau).
+  triggers:
+  - at: '23:59:30'
+    trigger: time
+  conditions: []
+  actions:
+  - variables:
+      kwh: '{{ states(''sensor.wp_energie_tag'') | float(none) }}'
+      t_mittel: '{{ states(''sensor.wp_aussentemperatur_mittel_24h'') | float(none) }}'
+  - variables:
+      hgt: '{% if t_mittel is none %}{{ none }}{% elif t_mittel < 15 %}{{ (20 - t_mittel) | round(1) }}{% else %}0{%
+        endif %}'
+  - if:
+    - condition: template
+      value_template: '{{ hgt is not none }}'
+    then:
+    - action: input_number.set_value
+      data:
+        value: '{{ hgt }}'
+      target:
+        entity_id: input_number.wp_heizgradtage_vortag
+  - if:
+    - condition: template
+      value_template: '{{ hgt is not none and kwh is not none and hgt >= 2 }}'
+    then:
+    - action: input_number.set_value
+      data:
+        value: '{{ [ (kwh / hgt) | round(2), 10 ] | min }}'
+      target:
+        entity_id: input_number.wp_kwh_pro_heizgradtag_vortag
+    - action: logbook.log
+      data:
+        entity_id: input_number.wp_kwh_pro_heizgradtag_vortag
+        message: Heute {{ kwh | round(1) }} kWh bei {{ hgt }} Heizgradtagen (Ø außen {{ t_mittel }} °C) = {{ (kwh
+          / hgt) | round(2) }} kWh pro Heizgradtag
+        name: WP Effizienz
+  mode: single

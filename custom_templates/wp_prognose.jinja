@@ -1,0 +1,27 @@
+{# Verbrauchsprognose der Heiz-Waermepumpe.
+   Modell: kWh/Tag = STEIGUNG x (HEIZGRENZE - Tagesmittel aussen), nie unter 0.
+   Die Steigung wird mit der aktuellen Effizienz (kWh pro Heizgradtag, 14-Tage-Mittel)
+   gegenueber BASIS skaliert: wird die Anlage effizienter, sinkt die Prognose mit.
+
+   ANPASSEN an dein Haus (Werte des Autors: 180 m2, Heizkoerper 55/45, Norm-Heizlast 9,5 kW):
+     STEIGUNG   kWh Strom je Kelvin unter der Heizgrenze und Tag
+     HEIZGRENZE Tagesmittel aussen, ab dem nicht mehr geheizt wird
+     BASIS      typischer Wert kWh je Heizgradtag deiner Anlage
+   So ermitteln: 1-2 Wochen laufen lassen, dann STEIGUNG = Tagesverbrauch / (HEIZGRENZE - Tagesmittel)
+   im Mittel, BASIS = Mittel von sensor.wp_kwh_pro_heizgradtag. #}
+{% set STEIGUNG = 2.6 %}
+{% set HEIZGRENZE = 18.7 %}
+{% set BASIS = 2.3 %}
+{% macro wp_faktor(f) -%}
+{%- set f = f | float(BASIS) -%}
+{%- set f = [[f, 1.0] | max, 5.0] | min -%}
+{{ STEIGUNG * f / BASIS }}
+{%- endmacro %}
+{% macro wp_kwh_tag(t, f) -%}
+{{ [ (wp_faktor(f) | float) * (HEIZGRENZE - (t | float)), 0 ] | max | round(1) }}
+{%- endmacro %}
+{% macro wp_kwh_summe(temps, f, tage) -%}
+{%- set ns = namespace(s=0) -%}
+{%- for t in temps[:tage] -%}{%- set ns.s = ns.s + (wp_kwh_tag(t, f) | float) -%}{%- endfor -%}
+{{ ns.s | round(0) }}
+{%- endmacro %}

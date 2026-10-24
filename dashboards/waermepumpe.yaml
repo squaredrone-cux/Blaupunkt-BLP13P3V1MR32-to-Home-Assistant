@@ -1,0 +1,2902 @@
+# Dashboard „Wärmepumpe“ – im Dashboard: ⋮ > Bearbeiten > ⋮ > Raw-Konfigurationseditor, Inhalt ersetzen.
+# Benötigt die Ressourcen /local/puffer-speicher-card.js und /local/energiebilanz-card.js (JavaScript-Modul)
+# und aus HACS die Karte ring-tile (custom:ring-tile), siehe README.
+title: Wärmepumpe NEU
+views:
+- title: Übersicht
+  path: uebersicht
+  icon: mdi:heat-pump
+  type: sections
+  max_columns: 3
+  theme: Liquid Glass
+  badges:
+  - type: entity
+    entity: binary_sensor.wp_storung
+    show_name: true
+    name: Störung
+    color: red
+    visibility:
+    - condition: state
+      entity: binary_sensor.wp_storung
+      state: 'on'
+  - type: entity
+    entity: binary_sensor.wp_verdichter_lauft
+    show_name: true
+    name: Verdichter
+    color: orange
+  - type: entity
+    entity: sensor.wp_wirkleistung
+    show_name: true
+    name: Leistung
+    color: amber
+  - type: entity
+    entity: sensor.wp_aussentemperatur_gefiltert
+    show_name: true
+    name: Außen
+    color: blue
+  - type: entity
+    entity: select.wp_modus
+    show_name: true
+    name: Modus
+    color: green
+  - type: entity
+    entity: binary_sensor.wp_abtauung_aktiv
+    show_name: true
+    name: Abtauung
+    color: cyan
+    visibility:
+    - condition: state
+      entity: binary_sensor.wp_abtauung_aktiv
+      state: 'on'
+  - type: entity
+    entity: binary_sensor.wp_heizstab_puffer
+    show_name: true
+    name: Heizstab
+    color: red
+    visibility:
+    - condition: state
+      entity: binary_sensor.wp_heizstab_puffer
+      state: 'on'
+  sections:
+  - type: grid
+    cards:
+    - type: markdown
+      content: '## ⚠️ Störung der Wärmepumpe
+
+        Mindestens ein Fehlerbit ist gesetzt. Details unter dem Reiter **Diagnose**.'
+      grid_options:
+        columns: full
+      visibility:
+      - condition: state
+        entity: binary_sensor.wp_storung
+        state: 'on'
+    - type: heading
+      heading: Status
+      icon: mdi:information-outline
+    - type: tile
+      entity: switch.wp_power
+      name: Power
+      icon: mdi:power
+      color: green
+      tap_action:
+        action: more-info
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: binary_sensor.wp_verdichter_lauft
+      name: Verdichter
+      color: orange
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: binary_sensor.wp_abtauung_aktiv
+      name: Abtauung
+      icon: mdi:snowflake-melt
+      color: blue
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: select.wp_modus
+      name: Modus
+      icon: mdi:leaf
+      color: green
+      tap_action:
+        action: more-info
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: input_select.wp_heizkurve_stufe
+      name: Heizkurve
+      icon: mdi:thermometer-lines
+      color: deep-orange
+      tap_action:
+        action: more-info
+      grid_options:
+        columns: 6
+    - type: heading
+      heading: Laufzeit heute
+      heading_style: subtitle
+      icon: mdi:timer-outline
+    - type: tile
+      entity: sensor.wp_verdichter_laufzeit_heute
+      name: Laufzeit
+      icon: mdi:timer-sand
+      color: orange
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.wp_verdichter_starts_heute
+      name: Starts
+      icon: mdi:restart
+      color: orange
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.wp_mittlere_laufzeit_heute
+      name: Ø Laufzeit/Start
+      icon: mdi:timer-outline
+      color: orange
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.wp_abtauungen_heute
+      name: Abtauungen
+      icon: mdi:snowflake-melt
+      color: cyan
+      grid_options:
+        columns: 6
+    - type: heading
+      heading: Strom
+      icon: mdi:flash
+    - type: custom:ring-tile
+      entity: sensor.wp_wirkleistung
+      name: Leistung
+      icon: mdi:flash
+      ring_type: closed
+      ring_size: 2
+      indicator: arc
+      min: 0
+      max: 4
+      middle_element: value_with_unit
+      hide_state: true
+      colourise_icon: true
+      colour:
+        30%: ha_green
+        60%: ha_yellow
+        85%: ha_red
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: custom:ring-tile
+      entity: sensor.wp_energie_tag
+      name: Heute (Ring = erwartet)
+      icon: mdi:counter
+      ring_type: closed
+      ring_size: 2
+      indicator: arc
+      min: 0
+      max: sensor.wp_erwarteter_tagesverbrauch
+      middle_element: value_with_unit
+      hide_state: true
+      colourise_icon: true
+      colour:
+        70%: ha_green
+        100%: ha_yellow
+        125%: ha_red
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: tile
+      entity: sensor.wp_wirkleistung
+      name: Leistung 24 h
+      icon: mdi:chart-line
+      color: amber
+      grid_options:
+        columns: 6
+        rows: 2
+      features:
+      - type: trend-graph
+        hours_to_show: 24
+    - type: tile
+      entity: sensor.wp_energie_monat
+      name: Monat
+      icon: mdi:calendar-month
+      color: amber
+      grid_options:
+        columns: 6
+        rows: 2
+  - type: grid
+    cards:
+    - type: heading
+      heading: Temperaturen
+      icon: mdi:thermometer
+    - type: custom:ring-tile
+      entity: sensor.wp_heizkurve_soll
+      name: Soll (Heizkurve)
+      icon: mdi:target
+      ring_type: open
+      ring_size: 2
+      indicator: dot
+      scale: ticks
+      min: 20
+      max: 55
+      middle_element: value_with_unit
+      hide_state: true
+      colourise_icon: true
+      colour:
+        '25': ha_blue
+        '35': ha_yellow
+        '45': ha_orange
+        '55': ha_red
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: custom:ring-tile
+      entity: sensor.wp_aussentemperatur_gefiltert
+      name: Außen
+      ring_type: open
+      ring_size: 2
+      indicator: dot
+      scale: ticks
+      min: -15
+      max: 25
+      middle_element: value_with_unit
+      hide_state: true
+      colourise_icon: true
+      colour:
+        '0': ha_blue
+        '10': ha_green
+        '18': ha_yellow
+        '25': ha_orange
+        '-10': ha_purple
+      marker: sensor.wp_aussentemperatur_mittel_24h
+      marker_colour: ha_grey
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: custom:ring-tile
+      entity: sensor.wp_vorlauf_temperatur
+      name: WP Vorlauf
+      ring_type: open
+      ring_size: 2
+      indicator: dot
+      scale: ticks
+      min: 20
+      max: 55
+      middle_element: value_with_unit
+      hide_state: true
+      colourise_icon: true
+      colour:
+        '25': ha_blue
+        '35': ha_yellow
+        '45': ha_orange
+        '55': ha_red
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: custom:ring-tile
+      entity: sensor.wp_rucklauf_temperatur
+      name: WP Rücklauf
+      ring_type: open
+      ring_size: 2
+      indicator: dot
+      scale: ticks
+      min: 20
+      max: 55
+      middle_element: value_with_unit
+      hide_state: true
+      colourise_icon: true
+      colour:
+        '25': ha_blue
+        '35': ha_yellow
+        '45': ha_orange
+        '55': ha_red
+      marker: sensor.wp_heizkurve_soll
+      marker_colour: ha_grey
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: custom:ring-tile
+      entity: sensor.wp_warmwasser_temperatur
+      name: Pufferspeicher
+      icon: mdi:water-boiler
+      ring_type: open
+      ring_size: 2
+      indicator: dot
+      scale: ticks
+      min: 20
+      max: 55
+      middle_element: value_with_unit
+      hide_state: true
+      colourise_icon: true
+      colour:
+        '25': ha_blue
+        '35': ha_yellow
+        '45': ha_orange
+        '55': ha_red
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: custom:ring-tile
+      entity: sensor.puffer_heizkreis_vorlauf
+      name: Heizkörper Vorlauf
+      icon: mdi:radiator
+      ring_type: open
+      ring_size: 2
+      indicator: dot
+      scale: ticks
+      min: 20
+      max: 55
+      middle_element: value_with_unit
+      hide_state: true
+      colourise_icon: true
+      colour:
+        '25': ha_blue
+        '35': ha_yellow
+        '45': ha_orange
+        '55': ha_red
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: custom:ring-tile
+      entity: sensor.puffer_heizkreis_rucklauf
+      name: Heizkörper Rücklauf
+      icon: mdi:radiator-disabled
+      ring_type: open
+      ring_size: 2
+      indicator: dot
+      scale: ticks
+      min: 20
+      max: 55
+      middle_element: value_with_unit
+      hide_state: true
+      colourise_icon: true
+      colour:
+        '25': ha_blue
+        '35': ha_yellow
+        '45': ha_orange
+        '55': ha_red
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: tile
+      entity: sensor.wp_spreizung
+      name: Spreizung WP
+      icon: mdi:arrow-expand-vertical
+      color: purple
+      grid_options:
+        columns: 6
+        rows: 2
+      features:
+      - type: trend-graph
+        hours_to_show: 24
+- title: Steuerung
+  path: steuerung
+  icon: mdi:tune
+  type: sections
+  max_columns: 3
+  theme: Liquid Glass
+  sections:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Betrieb
+      icon: mdi:power
+    - type: tile
+      entity: switch.wp_power
+      name: Power
+      icon: mdi:power
+      color: green
+      tap_action:
+        action: toggle
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: select.wp_betriebsmodus
+      name: Betriebsmodus
+      icon: mdi:cog-transfer
+      color: deep-orange
+      tap_action:
+        action: none
+      hold_action:
+        action: none
+      icon_tap_action:
+        action: none
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: select.wp_modus
+      name: Modus
+      icon: mdi:leaf
+      color: green
+      features:
+      - type: select-options
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: heading
+      heading: Modus-Automatik
+      heading_style: subtitle
+      icon: mdi:auto-mode
+    - type: tile
+      entity: input_boolean.wp_modus_automatik
+      name: Automatik ECO / Smart
+      icon: mdi:auto-mode
+      color: green
+      features:
+      - type: toggle
+      features_position: inline
+      grid_options:
+        columns: full
+    - type: tile
+      entity: input_number.wp_smart_unter
+      name: Smart unter (30 min)
+      icon: mdi:thermometer-chevron-down
+      color: blue
+      features:
+      - type: numeric-input
+        style: buttons
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: tile
+      entity: input_number.wp_eco_ueber
+      name: ECO über (60 min)
+      icon: mdi:thermometer-chevron-up
+      color: green
+      features:
+      - type: numeric-input
+        style: buttons
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: entities
+      show_header_toggle: false
+      entities:
+      - entity: automation.wp_modus_automatisch_eco_smart_nach_aussentemperatur
+        name: Zuletzt automatisch geschaltet
+        type: attribute
+        attribute: last_triggered
+        format: relative
+      grid_options:
+        columns: full
+  - type: grid
+    cards:
+    - type: heading
+      heading: Heizkurve
+      heading_style: subtitle
+      icon: mdi:chart-bell-curve-cumulative
+      badges:
+      - type: button
+        icon: mdi:help-circle-outline
+        tap_action:
+          action: navigate
+          navigation_path: /wp-neu/richtwerte-heizkurve
+    - type: tile
+      entity: switch.wp_p22_heiz_sollwert_automatik
+      name: Heizkurve (automatischer Sollwert)
+      icon: mdi:chart-bell-curve-cumulative
+      color: deep-orange
+      features:
+      - type: toggle
+      features_position: inline
+      grid_options:
+        columns: full
+    - type: tile
+      entity: input_select.wp_heizkurve_stufe
+      name: Heizkurve
+      icon: mdi:thermometer-lines
+      color: deep-orange
+      features:
+      - type: select-options
+      grid_options:
+        columns: full
+        rows: 2
+      visibility:
+      - condition: state
+        entity: switch.wp_p22_heiz_sollwert_automatik
+        state: 'on'
+    - type: tile
+      entity: number.wp_solltemperatur_heizen
+      name: Soll Heizen
+      icon: mdi:radiator
+      color: deep-orange
+      features:
+      - type: numeric-input
+        style: buttons
+      grid_options:
+        columns: full
+        rows: 2
+      visibility:
+      - condition: state
+        entity: switch.wp_p22_heiz_sollwert_automatik
+        state: 'off'
+    - type: heading
+      heading: Heizkurve automatisch nachführen
+      heading_style: subtitle
+      icon: mdi:home-thermometer
+    - type: tile
+      entity: input_boolean.heizkurve_automatisch_anpassen
+      name: Automatisch anpassen (täglich 21:00)
+      color: green
+      features:
+      - type: toggle
+      features_position: inline
+      grid_options:
+        columns: full
+    - type: tile
+      entity: input_number.wunsch_raumtemperatur
+      name: Wunsch-Raumtemperatur
+      color: deep-orange
+      features:
+      - type: numeric-input
+        style: buttons
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: tile
+      entity: sensor.raumtemperatur_referenz
+      name: Raumtemperatur (Referenz)
+      color: orange
+      grid_options:
+        columns: 6
+        rows: 2
+      features:
+      - type: trend-graph
+        hours_to_show: 48
+  - type: grid
+    cards:
+    - type: heading
+      heading: Nachtabsenkung
+      heading_style: subtitle
+      icon: mdi:weather-night
+    - type: tile
+      entity: input_boolean.wp_nachtabsenkung
+      name: Nachtabsenkung
+      icon: mdi:weather-night
+      color: indigo
+      features:
+      - type: toggle
+      features_position: inline
+      grid_options:
+        columns: full
+    - type: tile
+      entity: input_select.wp_nachtabsenkung_stufe
+      name: Stufe nachts
+      icon: mdi:weather-night
+      color: indigo
+      features:
+      - type: select-options
+      grid_options:
+        columns: full
+        rows: 2
+    - type: entities
+      show_header_toggle: false
+      entities:
+      - entity: input_datetime.wp_nachtabsenkung_beginn
+        name: Beginn
+      - entity: input_datetime.wp_nachtabsenkung_ende
+        name: Ende
+      - entity: input_text.wp_heizkurve_tagesstufe_gemerkt
+        name: Gemerkte Tagesstufe (leer = keine Absenkung aktiv)
+        icon: mdi:content-save
+      - entity: automation.wp_nachtabsenkung
+        name: Zuletzt geschaltet
+        type: attribute
+        attribute: last_triggered
+        format: relative
+      grid_options:
+        columns: full
+    - type: heading
+      heading: Zeitplan
+      heading_style: subtitle
+      icon: mdi:calendar-clock
+    - type: tile
+      entity: input_boolean.wp_zeitplan_aktiv
+      name: Zeitplan aktiv
+      icon: mdi:calendar-check
+      color: green
+      features:
+      - type: toggle
+      features_position: inline
+      grid_options:
+        columns: full
+    - type: tile
+      entity: schedule.wp_heizzeiten
+      name: Heizzeiten (antippen zum Bearbeiten)
+      icon: mdi:calendar-clock
+      color: deep-orange
+      state_content:
+      - state
+      - next_event
+      tap_action:
+        action: more-info
+      grid_options:
+        columns: full
+    - type: heading
+      heading: DC-Pumpe
+      heading_style: subtitle
+      icon: mdi:pump
+    - color: blue
+      entity: select.wp_dc_pumpe_modus
+      features:
+      - type: select-options
+      grid_options:
+        columns: full
+        rows: 2
+      icon: mdi:pump
+      name: Modus
+      type: tile
+    - color: purple
+      entity: number.wp_dc_pumpe_ziel_spreizung
+      features:
+      - style: buttons
+        type: numeric-input
+      grid_options:
+        columns: 6
+        rows: 2
+      name: Ziel-Spreizung (Automatik)
+      type: tile
+      visibility:
+      - condition: state
+        entity: select.wp_dc_pumpe_modus
+        state: Automatik
+    - color: blue
+      entity: number.wp_dc_pumpe_handdrehzahl
+      features:
+      - style: buttons
+        type: numeric-input
+      grid_options:
+        columns: 6
+        rows: 2
+      name: Drehzahl (Manuell)
+      type: tile
+      visibility:
+      - condition: state
+        entity: select.wp_dc_pumpe_modus
+        state: Manuell
+    - content: 'Empfohlen: **Automatik, Ziel-Spreizung 5 K** – die Pumpe regelt dann im Betrieb auf ihre Mindestdrehzahl (40 %). Jede Änderung
+        wird in den Speicher der Wärmepumpe geschrieben: nur gezielt verstellen. Die Anzeige aktualisiert sich bis zu 5 min verzögert.'
+      grid_options:
+        columns: full
+      type: markdown
+- title: Puffer
+  path: puffer
+  icon: mdi:water-boiler
+  type: sections
+  max_columns: 3
+  theme: Liquid Glass
+  sections:
+  - type: grid
+    column_span: 2
+    cards:
+    - type: heading
+      heading: Pufferspeicher
+      icon: mdi:water-boiler
+    - type: custom:ring-tile
+      entity: sensor.puffer_wp_vorlauf
+      name: WP Vorlauf
+      ring_type: open
+      ring_size: 2
+      indicator: dot
+      scale: ticks
+      min: 20
+      max: 55
+      middle_element: value_with_unit
+      hide_state: true
+      colourise_icon: true
+      colour:
+        '25': ha_blue
+        '35': ha_yellow
+        '45': ha_orange
+        '55': ha_red
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: custom:ring-tile
+      entity: sensor.puffer_wp_rucklauf
+      name: WP Rücklauf
+      ring_type: open
+      ring_size: 2
+      indicator: dot
+      scale: ticks
+      min: 20
+      max: 55
+      middle_element: value_with_unit
+      hide_state: true
+      colourise_icon: true
+      colour:
+        '25': ha_blue
+        '35': ha_yellow
+        '45': ha_orange
+        '55': ha_red
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: custom:ring-tile
+      entity: sensor.puffer_heizkreis_vorlauf
+      name: Heizkreis Vorlauf
+      icon: mdi:radiator
+      ring_type: open
+      ring_size: 2
+      indicator: dot
+      scale: ticks
+      min: 20
+      max: 55
+      middle_element: value_with_unit
+      hide_state: true
+      colourise_icon: true
+      colour:
+        '25': ha_blue
+        '35': ha_yellow
+        '45': ha_orange
+        '55': ha_red
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: custom:ring-tile
+      entity: sensor.puffer_heizkreis_rucklauf
+      name: Heizkreis Rücklauf
+      icon: mdi:radiator-disabled
+      ring_type: open
+      ring_size: 2
+      indicator: dot
+      scale: ticks
+      min: 20
+      max: 55
+      middle_element: value_with_unit
+      hide_state: true
+      colourise_icon: true
+      colour:
+        '25': ha_blue
+        '35': ha_yellow
+        '45': ha_orange
+        '55': ha_red
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: custom:puffer-speicher-card
+      title: Live-Ansicht
+      entities:
+        oben: sensor.puffer_heizkreis_vorlauf
+        mitte: sensor.wp_warmwasser_temperatur
+        unten: sensor.puffer_wp_rucklauf
+        wp_vorlauf: sensor.puffer_wp_vorlauf
+        wp_ruecklauf: sensor.puffer_wp_rucklauf
+        hk_vorlauf: sensor.puffer_heizkreis_vorlauf
+        hk_ruecklauf: sensor.puffer_heizkreis_rucklauf
+        wp_pumpe: binary_sensor.wp_umwalzpumpe_lauft
+        hk_pumpe: binary_sensor.heizkreispumpe_lauft
+        verdichter: binary_sensor.wp_verdichter_lauft
+      grid_options:
+        columns: full
+        rows: auto
+  - type: grid
+    cards:
+    - type: heading
+      heading: Spreizung
+      icon: mdi:arrow-expand-vertical
+    - type: tile
+      entity: sensor.wp_spreizung
+      name: Wärmepumpe
+      icon: mdi:heat-pump
+      color: orange
+      grid_options:
+        columns: 6
+        rows: 2
+      features:
+      - type: trend-graph
+        hours_to_show: 24
+    - type: tile
+      entity: sensor.heizkreis_spreizung
+      name: Heizkreis
+      icon: mdi:radiator
+      color: blue
+      grid_options:
+        columns: 6
+        rows: 2
+      features:
+      - type: trend-graph
+        hours_to_show: 24
+    - type: heading
+      heading: Heizkreispumpe
+      icon: mdi:pump
+    - type: tile
+      entity: switch.umwalzpumpe_heizkreis
+      name: Heizkreispumpe
+      icon: mdi:pump
+      color: blue
+      features:
+      - type: toggle
+      features_position: inline
+      grid_options:
+        columns: full
+    - type: tile
+      entity: input_boolean.heizkreispumpe_automatik
+      name: Automatik (folgt WP AN/AUS)
+      icon: mdi:auto-mode
+      color: green
+      features:
+      - type: toggle
+      features_position: inline
+      grid_options:
+        columns: full
+    - type: tile
+      entity: binary_sensor.heizkreispumpe_lauft
+      name: Läuft
+      icon: mdi:pump
+      color: blue
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: sensor.umwalzpumpe_heizkreis_leistung
+      name: Leistung
+      color: amber
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: sensor.umwalzpumpe_heizkreis_stromstarke
+      name: Strom
+      color: amber
+      grid_options:
+        columns: 4
+    - type: heading
+      heading: Puffer-Verlust
+      icon: mdi:water-boiler-alert
+    - type: tile
+      entity: sensor.puffer_stillstandsverlust
+      name: Wärmeverlust jetzt
+      icon: mdi:water-boiler-alert
+      color: orange
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.puffer_verlust_heute
+      name: Verlust heute
+      icon: mdi:counter
+      color: orange
+      grid_options:
+        columns: 6
+    - type: markdown
+      content: Geschätzt aus Typenschild (53 W bei 45 K) und Puffertemperatur, Heizungsraum mit 18 °C angenommen. Strom dafür ≈ Wärmeverlust ÷
+        3,5.
+      grid_options:
+        columns: full
+    - heading: DC-Pumpe der Wärmepumpe
+      icon: mdi:pump
+      type: heading
+    - color: blue
+      entity: sensor.wp_dc_pumpe_drehzahl
+      grid_options:
+        columns: 6
+        rows: 2
+      icon: mdi:speedometer
+      name: Drehzahl jetzt
+      type: tile
+      features:
+      - type: trend-graph
+        hours_to_show: 24
+  - cards:
+    - heading: Leitung Außengerät ↔ Puffer
+      icon: mdi:pipe-leak
+      type: heading
+    - color: red
+      entity: sensor.wp_leitung_verlust_vorlauf
+      grid_options:
+        columns: 4
+        rows: 2
+      name: Abkühlung Vorlauf (WP → Puffer)
+      type: tile
+      features:
+      - type: trend-graph
+        hours_to_show: 48
+    - color: blue
+      entity: sensor.wp_leitung_verlust_rucklauf
+      grid_options:
+        columns: 4
+        rows: 2
+      name: Abkühlung Rücklauf (Puffer → WP)
+      type: tile
+      features:
+      - type: trend-graph
+        hours_to_show: 48
+    - color: grey
+      entity: input_number.korrektur_puffer_wp_rucklauf
+      features:
+      - style: buttons
+        type: numeric-input
+      grid_options:
+        columns: 4
+        rows: 2
+      icon: mdi:tune-vertical
+      name: Korrektur Puffer-Rücklauffühler
+      type: tile
+    - content: 'Gemessen nur, während der Verdichter stabil läuft. **Positiv = Abkühlung auf der Leitung.** Ausgangslage Oktober bei ~10 °C außen:
+        Vorlauf −0,2 K, Rücklauf ~0 K (nach Korrektur). Steigen die Werte bei Frost deutlich (> 0,5 K), lohnt bessere Dämmung der Außenleitungen.
+        Der Puffer-Rücklauffühler zeigt ~2 K mehr als der Fühler im Außengerät; ob Fehlmessung oder nicht, klärt erst ein Wärmemengenzähler –
+        deshalb gibt es den Rohwert und den korrigierten Wert.'
+      grid_options:
+        columns: full
+      type: markdown
+    column_span: 3
+    type: grid
+- title: Verdichter
+  path: verdichter
+  icon: mdi:engine
+  type: sections
+  max_columns: 3
+  theme: Liquid Glass
+  sections:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Verdichter jetzt
+      icon: mdi:engine
+    - type: custom:ring-tile
+      entity: sensor.wp_verdichter_frequenz
+      name: Frequenz
+      icon: mdi:sine-wave
+      ring_type: closed
+      ring_size: 2
+      indicator: arc
+      scale: none
+      min: 0
+      max: 120
+      middle_element: value_with_unit
+      hide_state: true
+      colourise_icon: true
+      colour:
+        '30': ha_green
+        '80': ha_yellow
+        '100': ha_red
+      marker: sensor.wp_verdichter_zielfrequenz
+      marker_colour: ha_grey
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: custom:ring-tile
+      entity: sensor.wp_wirkleistung
+      name: Leistung
+      icon: mdi:flash
+      ring_type: closed
+      ring_size: 2
+      indicator: arc
+      scale: none
+      min: 0
+      max: 4
+      middle_element: value_with_unit
+      hide_state: true
+      colourise_icon: true
+      colour:
+        30%: ha_green
+        60%: ha_yellow
+        85%: ha_red
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: heading
+      heading: Betriebszustand
+      heading_style: subtitle
+      icon: mdi:state-machine
+    - type: tile
+      entity: binary_sensor.wp_verdichter_lauft
+      name: Verdichter
+      color: orange
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: binary_sensor.wp_lufter_lauft
+      name: Lüfter
+      color: cyan
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: binary_sensor.wp_umwalzpumpe_lauft
+      name: Umwälzpumpe
+      color: blue
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: binary_sensor.wp_4_wege_ventil
+      name: 4-Wege-Ventil
+      color: purple
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: binary_sensor.wp_heizstab_puffer
+      name: Heizstab Puffer (3 kW)
+      color: red
+      grid_options:
+        columns: 6
+    - type: entities
+      entities:
+      - entity: sensor.wp_heizstab_laufzeit_heute
+        name: Heizstab Laufzeit heute
+      - entity: sensor.wp_verdichter_zielfrequenz
+        name: Zielfrequenz
+      - entity: sensor.wp_lufter_drehzahl
+        name: Lüfterdrehzahl
+      - entity: sensor.wp_dc_pumpe_drehzahl
+        name: DC-Pumpe
+      grid_options:
+        columns: full
+  - type: grid
+    cards:
+    - type: heading
+      heading: Takten heute
+      icon: mdi:counter
+      badges:
+      - type: button
+        icon: mdi:help-circle-outline
+        tap_action:
+          action: navigate
+          navigation_path: /wp-neu/richtwerte-takten
+    - type: custom:ring-tile
+      entity: sensor.wp_verdichter_starts_heute
+      name: Starts heute
+      icon: mdi:restart
+      ring_type: closed
+      ring_size: 2
+      indicator: arc
+      min: 0
+      max: 25
+      middle_element: value
+      hide_state: true
+      colourise_icon: true
+      colour:
+        '10': ha_green
+        '15': ha_yellow
+        '25': ha_red
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: custom:ring-tile
+      entity: sensor.wp_mittlere_laufzeit_heute
+      name: Ø Laufzeit / Start
+      icon: mdi:timer-outline
+      ring_type: closed
+      ring_size: 2
+      indicator: arc
+      min: 0
+      max: 360
+      middle_element: value_with_unit
+      hide_state: true
+      colourise_icon: true
+      colour:
+        '10': ha_red
+        '20': ha_yellow
+        '30': ha_green
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: tile
+      entity: sensor.wp_verdichter_laufzeit_heute
+      name: Laufzeit gesamt heute
+      icon: mdi:timer-sand
+      color: orange
+      grid_options:
+        columns: full
+  - type: grid
+    cards:
+    - type: heading
+      heading: Verlauf
+      icon: mdi:chart-line
+    - type: heading
+      heading: Rohwerte (Fehlersuche)
+      heading_style: subtitle
+      icon: mdi:code-brackets
+    - type: entities
+      entities:
+      - entity: sensor.wp_steuerflags_1
+        name: Steuerflags 1 (Bit0 = Power)
+      - entity: sensor.wp_ausgange_1
+        name: Ausgänge 1 (Bit0 Verdichter, Bit5 Lüfter, Bit6 4-Wege)
+      - entity: sensor.wp_ausgange_2
+        name: Ausgänge 2
+      - entity: sensor.wp_ausgange_3
+        name: Ausgänge 3 (Bit0 Wasserpumpe)
+      - entity: sensor.wp_verdichter_frequenz
+        name: Istfrequenz
+      - entity: sensor.wp_verdichter_strom
+        name: Verdichterstrom (Rohwert)
+      - entity: sensor.wp_betriebsmodus_register
+        name: Betriebsmodus-Register
+      grid_options:
+        columns: full
+- title: Energie
+  path: energie
+  icon: mdi:flash
+  type: sections
+  max_columns: 3
+  theme: Liquid Glass
+  sections:
+  - type: grid
+    column_span: 3
+    cards:
+    - type: heading
+      heading: Verbrauch und Außentemperatur
+      icon: mdi:chart-scatter-plot
+    - type: custom:ring-tile
+      entity: sensor.wp_energie_tag
+      name: Heute vs. erwartet
+      icon: mdi:counter
+      ring_type: closed
+      ring_size: 2
+      indicator: arc
+      min: 0
+      max: sensor.wp_erwarteter_tagesverbrauch
+      middle_element: value_with_unit
+      hide_state: true
+      colourise_icon: true
+      colour:
+        70%: ha_green
+        100%: ha_yellow
+        125%: ha_red
+      grid_options:
+        columns: 4
+        rows: 2
+    - type: custom:ring-tile
+      entity: sensor.wp_wirkleistung
+      name: Leistung jetzt
+      icon: mdi:flash
+      ring_type: closed
+      ring_size: 2
+      indicator: arc
+      min: 0
+      max: 4
+      middle_element: value_with_unit
+      hide_state: true
+      colourise_icon: true
+      colour:
+        30%: ha_green
+        60%: ha_yellow
+        85%: ha_red
+      grid_options:
+        columns: 4
+        rows: 2
+    - type: tile
+      entity: sensor.wp_aussentemperatur_mittel_24h
+      name: Außen Ø 24 h
+      icon: mdi:thermometer
+      color: blue
+      grid_options:
+        columns: 4
+        rows: 2
+      features:
+      - type: trend-graph
+        hours_to_show: 48
+    - type: tile
+      entity: sensor.heizung_strom_heute_gesamt
+      name: Heizung gesamt heute (WP + Heizstab)
+      icon: mdi:sigma
+      color: amber
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: sensor.wp_erwarteter_tagesverbrauch
+      name: Erwartet (bei diesem Wetter)
+      icon: mdi:target
+      color: grey
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: sensor.wp_energie_monat
+      name: Monat
+      icon: mdi:calendar-month
+      color: amber
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: sensor.wp_heizstab_energie_tag
+      name: Heizstab heute (geschätzt)
+      icon: mdi:heating-coil
+      color: red
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.wp_heizstab_energie_monat
+      name: Heizstab Monat (geschätzt)
+      icon: mdi:heating-coil
+      color: red
+      grid_options:
+        columns: 6
+    - heading: Effizienz (wetterbereinigt)
+      heading_style: subtitle
+      icon: mdi:chart-bell-curve
+      type: heading
+    - color: green
+      entity: sensor.wp_kwh_pro_heizgradtag
+      grid_options:
+        columns: 6
+      icon: mdi:chart-bell-curve
+      name: kWh pro Heizgradtag (gestern)
+      type: tile
+    - color: blue
+      entity: input_number.wp_heizgradtage_vortag
+      grid_options:
+        columns: 6
+      icon: mdi:thermometer-minus
+      name: Heizgradtage gestern
+      tap_action:
+        action: more-info
+      type: tile
+    - content: '**Heizgradtage** = 20 °C − Tagesmittel außen (0, wenn das Mittel ≥ 15 °C ist). **kWh pro Heizgradtag** rechnet das Wetter heraus:
+        So lassen sich Tage und Einstellungen fair vergleichen. Basis Oktober 2026: **≈ 2,1–2,5**, Wochenschnitt ≈ 2,3. Schwankungen von ±0,15
+        sind normal (Sonne, Wind, Lüften). Eine Änderung lohnt sich, wenn der Wert über eine Woche spürbar darunter bleibt. Berechnet täglich
+        um 23:59, Tage unter 2 Heizgradtagen werden übersprungen.'
+      grid_options:
+        columns: full
+      type: markdown
+    - type: markdown
+      content: '| Tagesmittel außen | Erwarteter Verbrauch |
+
+        |---|---|
+
+        | 10–12 °C | 15–25 kWh |
+
+        | 5 °C | 30–40 kWh |
+
+        | 0 °C | 50–60 kWh |
+
+        | −5 °C | 75–90 kWh |
+
+
+        **So liest du es:** Liegt der gemessene Balken deutlich (mehr als ~25 %) über dem erwarteten, lohnt ein Blick: Heizkurve zu hoch, Heizstab
+        gelaufen, viel Abtauung oder Fenster offen. Die Erwartung ist eine Schätzung aus Heizlast (9,5 kW bei −7,7 °C) und typischer Effizienz
+        bei 55/45 °C; nach ein paar Wochen Messwerten kann sie nachjustiert werden. Erster Tag nach dem Aufheizen und Tage mit Nachtabsenkung-Umstellung
+        liegen höher.'
+      grid_options:
+        columns: full
+  - type: grid
+    cards:
+    - type: heading
+      heading: Prognose (Wetter 14 Tage)
+      icon: mdi:crystal-ball
+    - type: tile
+      entity: sensor.wp_prognose_7_tage
+      name: Nächste 7 Tage
+      color: amber
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.wp_prognose_14_tage
+      name: Nächste 14 Tage
+      color: amber
+      grid_options:
+        columns: 6
+    - type: markdown
+      grid_options:
+        columns: full
+      content: '{% from ''wp_prognose.jinja'' import wp_kwh_tag %}{% set d = state_attr(''sensor.wetterprognose_14_tage'',''daily'') %}{% set
+        f = states(''sensor.wp_kwh_pro_heizgradtag_mittel_14_tage'') %}{% set tage = [''Mo'',''Di'',''Mi'',''Do'',''Fr'',''Sa'',''So''] %}{% if
+        d %}| Tag | Außen Ø (min) | Strom WP | |
+
+        |---|---|---|---|
+
+        {% for i in range(d.time | count) %}{% set k = wp_kwh_tag(d.temperature_2m_mean[i], f) | float %}{% set dt = as_datetime(d.time[i]) %}|
+        {{ tage[dt.weekday()] }} {{ dt.strftime(''%d.%m.'') }} | {{ d.temperature_2m_mean[i] }} °C ({{ d.temperature_2m_min[i] }}) | **{{ k }}
+        kWh** | {{ ''█'' * ((k / 4) | round(0) | int) }} |
+
+        {% endfor %}
+
+        Modell aus deinen Messwerten: **kWh/Tag ≈ 2,6 × (18,7 − Tagesmittel)**, angepasst an die aktuelle Effizienz ({{ f }} kWh pro Heizgradtag,
+        14-Tage-Mittel). Wetter: Open-Meteo, alle 3 h aktualisiert. Ab Tag 8 wird die Wetterprognose deutlich unsicherer.{% else %}Wetterprognose
+        noch nicht verfügbar.{% endif %}'
+  - type: grid
+    cards:
+    - type: heading
+      heading: Netzanschluss (KWS 306WF)
+      icon: mdi:transmission-tower
+    - type: distribution
+      title: Strom je Phase
+      entities:
+      - entity: sensor.wp_energiemeter_strom_a
+        name: L1
+      - entity: sensor.wp_energiemeter_strom_b
+        name: L2
+      - entity: sensor.wp_energiemeter_strom_c
+        name: L3
+      grid_options:
+        columns: full
+    - type: entities
+      entities:
+      - entity: sensor.wp_wirkleistung
+        name: Leistung gesamt
+      - entity: sensor.wp_energiemeter_energie
+        name: Energie gesamt
+      - entity: sensor.wp_energiemeter_spannung_a
+        name: Spannung L1
+      - entity: sensor.wp_energiemeter_spannung_b
+        name: Spannung L2
+      - entity: sensor.wp_energiemeter_spannung_c
+        name: Spannung L3
+      - entity: sensor.wp_energiemeter_frequenz
+        name: Netzfrequenz
+      - entity: sensor.wp_energiemeter_leistungsfaktor
+        name: Leistungsfaktor
+      grid_options:
+        columns: full
+  - type: grid
+    cards:
+    - type: heading
+      heading: Je Phase
+      icon: mdi:sine-wave
+    - type: entities
+      entities:
+      - entity: sensor.wp_energiemeter_leistung_a
+        name: Leistung L1
+      - entity: sensor.wp_energiemeter_leistung_b
+        name: Leistung L2
+      - entity: sensor.wp_energiemeter_leistung_c
+        name: Leistung L3
+      - entity: sensor.wp_energiemeter_verbrauchte_energie_a
+        name: Energie L1
+      - entity: sensor.wp_energiemeter_verbrauchte_energie_b
+        name: Energie L2
+      - entity: sensor.wp_energiemeter_verbrauchte_energie_c
+        name: Energie L3
+      grid_options:
+        columns: full
+- title: Statistik
+  path: statistik
+  icon: mdi:chart-box-outline
+  type: sections
+  max_columns: 2
+  theme: Liquid Glass
+  sections:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Statistik
+      icon: mdi:chart-box-outline
+    - type: markdown
+      content: Langzeitwerte der Wärmepumpe. Tippe auf einen Bereich. In jedem Diagramm kannst du mit der Maus oder dem Finger hineinzoomen und
+        einzelne Linien über die Legende ausblenden.
+      grid_options:
+        columns: full
+    - type: button
+      name: Energiebilanz Haus
+      icon: mdi:home-lightning-bolt
+      show_state: false
+      tap_action:
+        action: navigate
+        navigation_path: /wp-neu/statistik-energiebilanz
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: button
+      name: Strom & Effizienz
+      icon: mdi:flash
+      show_state: false
+      tap_action:
+        action: navigate
+        navigation_path: /wp-neu/statistik-strom
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: button
+      name: Temperaturen
+      icon: mdi:thermometer
+      show_state: false
+      tap_action:
+        action: navigate
+        navigation_path: /wp-neu/statistik-temperaturen
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: button
+      name: Taktung & Laufzeit
+      icon: mdi:restart
+      show_state: false
+      tap_action:
+        action: navigate
+        navigation_path: /wp-neu/statistik-taktung
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: button
+      name: Abtauung
+      icon: mdi:snowflake-melt
+      show_state: false
+      tap_action:
+        action: navigate
+        navigation_path: /wp-neu/statistik-abtauung
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: button
+      name: Hydraulik & Leitung
+      icon: mdi:arrow-expand-vertical
+      show_state: false
+      tap_action:
+        action: navigate
+        navigation_path: /wp-neu/statistik-hydraulik
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: button
+      name: Verläufe 24 h
+      icon: mdi:chart-timeline-variant
+      show_state: false
+      tap_action:
+        action: navigate
+        navigation_path: /wp-neu/statistik-verlauf
+      grid_options:
+        columns: 6
+        rows: 2
+  - type: grid
+    cards:
+    - type: heading
+      heading: Auf einen Blick (30 Tage)
+      icon: mdi:eye
+    - type: statistics-graph
+      title: Verbrauch pro Tag
+      chart_type: bar
+      period: day
+      days_to_show: 30
+      stat_types:
+      - change
+      entities:
+      - entity: sensor.wp_energie_tag
+        name: Wärmepumpe
+        color: '#fdd835'
+      grid_options:
+        columns: full
+        rows: 4
+    - type: statistics-graph
+      title: kWh pro Heizgradtag
+      chart_type: bar
+      period: day
+      days_to_show: 30
+      stat_types:
+      - max
+      entities:
+      - entity: sensor.wp_kwh_pro_heizgradtag
+        name: kWh/Kd
+        color: '#43a047'
+      grid_options:
+        columns: full
+        rows: 4
+    - type: statistics-graph
+      title: Außentemperatur
+      chart_type: line
+      period: day
+      days_to_show: 30
+      stat_types:
+      - min
+      - mean
+      - max
+      entities:
+      - entity: sensor.wp_aussentemperatur_gefiltert
+        name: Außen
+        color: '#26a69a'
+      grid_options:
+        columns: full
+        rows: 4
+- title: Abtauung
+  path: abtauung
+  icon: mdi:snowflake-melt
+  type: sections
+  max_columns: 3
+  theme: Liquid Glass
+  sections:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Abtauung heute
+      icon: mdi:snowflake-melt
+      badges:
+      - type: button
+        icon: mdi:help-circle-outline
+        tap_action:
+          action: navigate
+          navigation_path: /wp-neu/richtwerte-abtauung
+    - type: custom:ring-tile
+      entity: sensor.wp_abtauungen_heute
+      name: Abtauungen heute
+      icon: mdi:snowflake-melt
+      ring_type: closed
+      ring_size: 2
+      indicator: arc
+      min: 0
+      max: 30
+      middle_element: value
+      hide_state: true
+      colourise_icon: true
+      colour:
+        '10': ha_blue
+        '20': ha_yellow
+        '30': ha_red
+      grid_options:
+        columns: 6
+        rows: 2
+    - type: tile
+      entity: sensor.wp_abtauzeit_heute
+      name: Abtauzeit gesamt
+      icon: mdi:timer-outline
+      color: cyan
+      grid_options:
+        columns: 6
+        rows: 2
+  - type: grid
+    cards:
+    - type: heading
+      heading: Status
+      icon: mdi:information-outline
+    - type: tile
+      entity: binary_sensor.wp_abtauung_aktiv
+      name: Abtauung aktiv
+      icon: mdi:snowflake-melt
+      color: cyan
+      grid_options:
+        columns: full
+    - type: tile
+      entity: sensor.wp_verdampfer_temperatur
+      name: Verdampfer (ext. Spule)
+      icon: mdi:snowflake-thermometer
+      color: blue
+      grid_options:
+        columns: 6
+        rows: 2
+      features:
+      - type: trend-graph
+        hours_to_show: 24
+    - type: tile
+      entity: sensor.wp_aussentemperatur
+      name: Außen
+      icon: mdi:thermometer
+      color: teal
+      grid_options:
+        columns: 6
+        rows: 2
+      features:
+      - type: trend-graph
+        hours_to_show: 24
+  - type: grid
+    cards:
+    - type: heading
+      heading: Abtau-Parameter
+      icon: mdi:tune
+    - type: entities
+      show_header_toggle: false
+      entities:
+      - entity: number.wp_p09_abtaufrequenz
+        name: Abtau-Frequenz (P09)
+      - entity: number.wp_p10_abtauzyklus
+        name: Abtau-Zyklus (P10)
+      - entity: number.wp_p12_abtauzeit
+        name: Abtau-Dauer (P12)
+      - entity: number.wp_p11_abtau_start_spulentemp
+        name: Abtau Start, Spulentemperatur (P11)
+      - entity: number.wp_p13_abtau_ende_spulentemp
+        name: Abtau Ende, Spulentemperatur (P13)
+      - entity: number.wp_p14_abtau_differenz_1
+        name: Differenz Umgebung/Spule 1 (P14)
+      - entity: number.wp_p15_abtau_differenz_2
+        name: Differenz Umgebung/Spule 2 (P15)
+      - entity: number.wp_p16_abtau_umgebungstemp
+        name: Abtau Umgebungstemperatur (P16)
+      grid_options:
+        columns: full
+- title: Einstellungen
+  path: einstellungen
+  icon: mdi:cog
+  type: sections
+  max_columns: 3
+  theme: Liquid Glass
+  sections:
+  - type: grid
+    column_span: 3
+    cards:
+    - type: markdown
+      content: ⚠️ Jeder Schreibzugriff geht in den Flash der Wärmepumpe. Werte nur gezielt ändern, nicht in Automationen zyklisch schreiben. Vor
+        dem Ändern von Schutz- oder Abtauwerten mit der Anleitung abgleichen.
+      grid_options:
+        columns: full
+  - type: grid
+    cards:
+    - type: heading
+      heading: Betriebsarten
+      icon: mdi:cog-transfer
+    - type: tile
+      entity: switch.wp_silent_modus
+      name: Silent
+      icon: mdi:volume-off
+      color: indigo
+      features:
+      - type: toggle
+      features_position: inline
+      grid_options:
+        columns: full
+    - type: tile
+      entity: switch.wp_powerful_modus
+      name: Powerful
+      icon: mdi:arm-flex
+      color: red
+      features:
+      - type: toggle
+      features_position: inline
+      grid_options:
+        columns: full
+    - type: tile
+      entity: switch.wp_urlaubsmodus
+      name: Urlaub
+      icon: mdi:beach
+      color: cyan
+      features:
+      - type: toggle
+      features_position: inline
+      grid_options:
+        columns: full
+    - type: entities
+      show_header_toggle: false
+      entities:
+      - entity: number.wp_urlaub_solltemperatur
+        name: Urlaub Solltemperatur
+      - entity: switch.wp_p22_heiz_sollwert_automatik
+        name: Heiz-Solltemperatur automatisch anpassen (P22)
+      grid_options:
+        columns: full
+    - type: heading
+      heading: Komfort
+      icon: mdi:sofa
+    - type: entities
+      show_header_toggle: false
+      entities:
+      - entity: number.wp_wassertemperatur_kompensation
+        name: Wassertemperatur-Kompensation (P08)
+      - entity: number.wp_p01_neustart_diff_heizen_kuehlen
+        name: Neustart-Differenz Heizen/Kühlen (P01)
+      - entity: number.wp_p02_neustart_diff_warmwasser
+        name: Neustart-Differenz Warmwasser (P02)
+      grid_options:
+        columns: full
+  - type: grid
+    cards:
+    - type: heading
+      heading: Heizkurve und Heizstab
+      icon: mdi:chart-bell-curve-cumulative
+      badges:
+      - type: button
+        icon: mdi:help-circle-outline
+        tap_action:
+          action: navigate
+          navigation_path: /wp-neu/richtwerte-heizkurve
+    - type: entities
+      show_header_toggle: false
+      entities:
+      - entity: input_select.wp_heizkurve_stufe
+        name: Heizkurve Stufe (setzt P23)
+      - entity: sensor.wp_heizkurve_soll
+        name: Aktueller Kurven-Sollwert = 20 + P24/10 × (P23 − Außen)
+      - entity: number.wp_p23_heizkurve_aussentemp
+        name: Kompensation Heizen, Außentemperatur (P23)
+      - entity: number.wp_p24_heizkurve_faktor
+        name: Kompensationsfaktor, 1 = 0,1 (P24)
+      - entity: number.wp_p26_heizstab_aussentemp
+        name: Heizstab ab Außentemperatur (P26)
+      - entity: number.wp_p27_heizstab_verzoegerung
+        name: Warmwasser-Heizstab Verzögerung (P27)
+      grid_options:
+        columns: full
+  - type: grid
+    cards:
+    - type: heading
+      heading: Legionellenschaltung
+      icon: mdi:bacteria-outline
+    - type: entities
+      show_header_toggle: false
+      entities:
+      - entity: number.wp_p17_desinfektion_zyklus
+        name: Zyklus in Tagen, 0 = aus (P17)
+      - entity: number.wp_p18_desinfektion_startzeit
+        name: Startzeit, Stunde (P18)
+      - entity: number.wp_p19_desinfektion_haltezeit
+        name: Haltezeit (P19)
+      - entity: number.wp_p20_desinfektion_solltemp
+        name: Solltemperatur (P20)
+      - entity: number.wp_p21_desinfektion_wp_solltemp
+        name: Wärmepumpen-Solltemperatur (P21)
+      grid_options:
+        columns: full
+- title: Diagnose
+  path: diagnose
+  icon: mdi:stethoscope
+  type: sections
+  max_columns: 3
+  theme: Liquid Glass
+  sections:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Kältekreis
+      icon: mdi:snowflake
+    - type: tile
+      entity: sensor.wp_heissgas_temperatur
+      name: Heißgas
+      color: red
+      grid_options:
+        columns: 6
+        rows: 2
+      features:
+      - type: trend-graph
+        hours_to_show: 24
+    - type: tile
+      entity: sensor.wp_sauggas_temperatur
+      name: Sauggas
+      color: blue
+      grid_options:
+        columns: 6
+        rows: 2
+      features:
+      - type: trend-graph
+        hours_to_show: 24
+    - type: entities
+      entities:
+      - entity: sensor.wp_verdampfer_temperatur
+        name: Verdampfer (ext. Spule)
+      - entity: sensor.wp_kuhlspule_temperatur
+        name: Kühlspule
+      - entity: sensor.wp_niederdruck_umrechnungstemperatur
+        name: Niederdruck-Umrechnungstemperatur
+      - entity: sensor.wp_hauptexpansionsventil_offnung
+        name: Hauptexpansionsventil
+      - entity: sensor.wp_hilfsexpansionsventil_offnung
+        name: Hilfsexpansionsventil
+      grid_options:
+        columns: full
+  - type: grid
+    cards:
+    - type: heading
+      heading: Antriebe
+      icon: mdi:engine
+    - type: tile
+      entity: sensor.wp_dc_bus_spannung
+      name: DC-Bus
+      color: amber
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.wp_verdichter_strom
+      name: Verdichterstrom
+      color: orange
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.wp_lufter_drehzahl
+      name: Lüfter
+      color: cyan
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.wp_dc_pumpe_drehzahl
+      name: DC-Pumpe
+      color: blue
+      grid_options:
+        columns: 6
+        rows: 2
+      features:
+      - type: trend-graph
+        hours_to_show: 24
+  - type: grid
+    cards:
+    - type: heading
+      heading: Fehlerregister (0 = kein Fehler)
+      icon: mdi:alert-circle-outline
+    - type: tile
+      entity: binary_sensor.wp_storung
+      name: Sammelstörung
+      icon: mdi:alert
+      color: red
+      grid_options:
+        columns: full
+    - type: entities
+      entities:
+      - entity: sensor.wp_fehler_1
+        name: Fehler 1 (Sensoren, Hoch-/Niederdruck)
+      - entity: sensor.wp_fehler_2
+        name: Fehler 2 (Durchfluss, Übertemperatur)
+      - entity: sensor.wp_fehler_3
+        name: Fehler 3 (Abgastemperatur-Sensor)
+      - entity: sensor.wp_fehler_4
+        name: Fehler 4 (Einlauf, Abgas, Kühlen)
+      - entity: sensor.wp_fehler_5
+        name: Fehler 5 (Niederdruck, Spule)
+      - entity: sensor.wp_fehler_6
+        name: Fehler 6 (Frostschutz)
+      - entity: sensor.wp_fehler_7
+        name: Fehler 7 (Lüfter, Überstrom)
+      - entity: sensor.wp_inverter_fehler_low
+        name: Inverter Fehler Low
+      - entity: sensor.wp_inverter_fehler_high
+        name: Inverter Fehler High
+      grid_options:
+        columns: full
+    - type: markdown
+      title: Fehlercodes lesen
+      content: 'Die Fehlerregister sind Bitfelder. Beispiel **Fehler 1**: Bit0 = Er 14 (Warmwasser-Fühler), Bit1 = Er 21 (Außenfühler), Bit2 =
+        Er 16 (Spulenfühler), Bit4 = Er 27 (Vorlauffühler), Bit5 = Er 05 (Hochdruck), Bit6 = Er 06 (Niederdruck). Wert 33 = Bit0 + Bit5 = Er 14
+        und Er 05. Die vollständige Zuordnung steht in der Protokollbeschreibung (Register 0x8007 bis 0x800D).'
+      grid_options:
+        columns: full
+- title: Richtwerte Takten
+  path: richtwerte-takten
+  icon: mdi:help-circle-outline
+  subview: true
+  back_path: /wp-neu/verdichter
+  type: sections
+  max_columns: 3
+  theme: Liquid Glass
+  sections:
+  - type: grid
+    column_span: 2
+    cards:
+    - type: markdown
+      title: Richtwerte Takten
+      content: '| Kennzahl | ✅ gut | ⚠️ taktet zu viel |
+
+        |---|---|---|
+
+        | Mittlere Laufzeit pro Start | über 20–30 min | unter 10 min |
+
+        | Verdichter-Starts pro Tag (Übergangszeit) | unter 10–15 | über 25 |
+
+        | Starts pro Stunde | höchstens 3 | mehr als 3 |
+
+
+        **Woran es liegen kann, wenn sie zu oft taktet:**
+
+        - Vorlauf-Sollwert zu hoch für den aktuellen Bedarf → Heizkurve eine Stufe sparsamer
+
+        - Heizkörperventile drosseln → Wärme bleibt im Puffer
+
+        - Neustart-Differenz P01 zu klein (aktuell 4 K) → auf 5–6 K erhöhen'
+      grid_options:
+        columns: full
+- title: Richtwerte Abtauung
+  path: richtwerte-abtauung
+  icon: mdi:help-circle-outline
+  subview: true
+  back_path: /wp-neu/abtauung
+  type: sections
+  max_columns: 3
+  theme: Liquid Glass
+  sections:
+  - type: grid
+    column_span: 2
+    cards:
+    - type: markdown
+      title: Richtwerte Abtauung
+      content: '| Kennzahl | ✅ gut | ⚠️ auffällig |
+
+        |---|---|---|
+
+        | Abtauungen | nur bei Kälte (unter ca. +5 °C) | schon bei milden Temperaturen |
+
+        | Abstand zwischen Abtauungen | 45 min oder mehr | häufiger als alle 45 min |
+
+        | Dauer einer Abtauung | 3–8 min | regelmäßig 10 min (Maximum P12) |
+
+
+        **Woran es liegen kann:**
+
+        - Kondensatablauf friert zu → Eis wächst von unten in den Verdampfer
+
+        - Luftzufuhr am Außengerät behindert (Laub, Hecke, Schnee)
+
+        - Tropfwasser von Dach oder Regenrinne auf dem Gerät
+
+        - Abtau-Parameter P10–P13 erst ändern, wenn die Messwerte über mehrere kalte Tage auffällig sind'
+      grid_options:
+        columns: full
+- title: Richtwerte Heizkurve
+  path: richtwerte-heizkurve
+  icon: mdi:help-circle-outline
+  subview: true
+  back_path: /wp-neu/steuerung
+  type: sections
+  max_columns: 3
+  theme: Liquid Glass
+  sections:
+  - type: grid
+    column_span: 2
+    cards:
+    - type: heading
+      heading: Richtwerte Heizkurve
+      icon: mdi:chart-bell-curve-cumulative
+    - type: markdown
+      content: '**Jetzt:** Außen {{ states("sensor.wp_aussentemperatur_gefiltert") }} °C · Stufe **{{ states("input_select.wp_heizkurve_stufe")
+        }}** · Soll **{{ states("sensor.wp_heizkurve_soll") }} °C**'
+      grid_options:
+        columns: full
+    - type: markdown
+      content: '| Außen | Sehr sparsam | Sparsam | **Normal** | Wärmer | Viel wärmer |
+
+        |---|---|---|---|---|---|
+
+        | 15 °C | 26 | 28 | **30** | 32 | 34 |
+
+        | 14 °C | 27 | 29 | **31** | 33 | 35 |
+
+        | 13 °C | 28 | 30 | **32** | 34 | 36 |
+
+        | 12 °C | 29 | 31 | **33** | 35 | 37 |
+
+        | 11 °C | 30 | 32 | **34** | 36 | 38 |
+
+        | 10 °C | 31 | 33 | **35** | 37 | 39 |
+
+        | 9 °C | 32 | 34 | **36** | 38 | 40 |
+
+        | 8 °C | 33 | 35 | **37** | 39 | 41 |
+
+        | 7 °C | 34 | 36 | **38** | 40 | 42 |
+
+        | 6 °C | 35 | 37 | **39** | 41 | 43 |
+
+        | 5 °C | 36 | 38 | **40** | 42 | 44 |
+
+        | 4 °C | 37 | 39 | **41** | 43 | 45 |
+
+        | 3 °C | 38 | 40 | **42** | 44 | 46 |
+
+        | 2 °C | 39 | 41 | **43** | 45 | 47 |
+
+        | 1 °C | 40 | 42 | **44** | 46 | 48 |
+
+        | 0 °C | 41 | 43 | **45** | 47 | 49 |
+
+        | −1 °C | 42 | 44 | **46** | 48 | 50 |
+
+        | −2 °C | 43 | 45 | **47** | 49 | 51 |
+
+        | −3 °C | 44 | 46 | **48** | 50 | 52 |
+
+        | −4 °C | 45 | 47 | **49** | 51 | 53 |
+
+        | −5 °C | 46 | 48 | **50** | 52 | 54 |
+
+        | −6 °C | 47 | 49 | **51** | 53 | 55 |
+
+        | −7 °C | 48 | 50 | **52** | 54 | 56 |
+
+        | −8 °C | 49 | 51 | **53** | 55 | 57 |
+
+        | −9 °C | 50 | 52 | **54** | 56 | 58 |
+
+        | −10 °C | 51 | 53 | **55** | 57 | 59 |
+
+        | −11 °C | 52 | 54 | **56** | 58 | 60 |
+
+        | −12 °C | 53 | 55 | **57** | 59 | 61 |
+
+
+        Werte in °C Wassertemperatur-Soll. Formel: **Soll = 20 + (P24 ÷ 10) × (P23 − Außen)**, mit P24 = 10. Die Stufe verschiebt P23: Sehr sparsam
+        21 · Sparsam 23 · Normal 25 · Wärmer 27 · Viel wärmer 29.'
+      grid_options:
+        columns: full
+  - type: grid
+    cards:
+    - type: heading
+      heading: Tipps
+      icon: mdi:lightbulb-on-outline
+    - type: markdown
+      content: '**Einordnung für dein Haus:**
+
+        - Die Heizkörper sind auf **55/45 °C** abgeglichen. Das entspricht „Normal“ bei etwa −10 °C (Auslegungstemperatur an der Küste).
+
+        - Bei mildem Wetter reichen deutlich niedrigere Werte; je niedriger, desto effizienter: **1 °C weniger ≈ 2–3 % weniger Strom**.
+
+        - Über 55 °C bringt bei deinen Heizkörpern kaum mehr Wärme, kostet aber viel Effizienz.
+
+
+        **So stellst du richtig ein:**
+
+        - Räume bei mildem Wetter zu kalt, bei Frost passend → Stufe **wärmer**
+
+        - Räume überall zu warm → Stufe **sparsamer**
+
+        - Immer nur **eine Stufe** ändern und **24 Stunden** abwarten – das Haus reagiert träge.
+
+        - Nach dem ersten Aufheizen (Haus ausgekühlt) wieder auf **Normal** zurück.'
+      grid_options:
+        columns: full
+- title: Statistik Strom
+  path: statistik-strom
+  icon: mdi:flash
+  subview: true
+  back_path: /wp-neu/statistik
+  type: sections
+  max_columns: 2
+  theme: Liquid Glass
+  sections:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Strom pro Tag
+      icon: mdi:flash
+    - type: statistics-graph
+      title: Verbrauch pro Tag (60 Tage)
+      chart_type: bar
+      period: day
+      days_to_show: 60
+      stat_types:
+      - change
+      entities:
+      - entity: sensor.wp_energie_tag
+        name: Wärmepumpe
+        color: '#fdd835'
+      - entity: sensor.wp_heizstab_energie_tag
+        name: Heizstab
+        color: '#e53935'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: statistics-graph
+      title: Außentemperatur pro Tag (60 Tage)
+      chart_type: line
+      period: day
+      days_to_show: 60
+      stat_types:
+      - min
+      - mean
+      - max
+      entities:
+      - entity: sensor.wp_aussentemperatur_gefiltert
+        name: Außen
+        color: '#26a69a'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: statistics-graph
+      title: Leistung pro Tag (Mittel / Spitze)
+      chart_type: line
+      period: day
+      days_to_show: 60
+      stat_types:
+      - mean
+      - max
+      entities:
+      - entity: sensor.wp_wirkleistung
+        name: Leistung
+        color: '#fdd835'
+      grid_options:
+        columns: full
+        rows: 5
+  - type: grid
+    cards:
+    - type: heading
+      heading: Langfristig
+      icon: mdi:calendar-month
+    - type: statistics-graph
+      title: Verbrauch pro Woche (26 Wochen)
+      chart_type: bar
+      period: week
+      days_to_show: 182
+      stat_types:
+      - change
+      entities:
+      - entity: sensor.wp_energie_tag
+        name: Wärmepumpe
+        color: '#fdd835'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: statistics-graph
+      title: Verbrauch pro Monat (24 Monate)
+      chart_type: bar
+      period: month
+      days_to_show: 730
+      stat_types:
+      - change
+      entities:
+      - entity: sensor.wp_energiemeter_energie
+        name: Wärmepumpe
+        color: '#fdd835'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: statistics-graph
+      title: kWh pro Heizgradtag (wetterbereinigt, kleiner = besser)
+      chart_type: bar
+      period: day
+      days_to_show: 90
+      stat_types:
+      - max
+      entities:
+      - entity: sensor.wp_kwh_pro_heizgradtag
+        name: kWh/Kd
+        color: '#43a047'
+      grid_options:
+        columns: full
+        rows: 5
+- title: Statistik Temperaturen
+  path: statistik-temperaturen
+  icon: mdi:thermometer
+  subview: true
+  back_path: /wp-neu/statistik
+  type: sections
+  max_columns: 2
+  theme: Liquid Glass
+  sections:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Wärmepumpe
+      icon: mdi:heat-pump
+    - type: statistics-graph
+      title: Vorlauf WP pro Tag
+      chart_type: line
+      period: day
+      days_to_show: 60
+      stat_types:
+      - min
+      - mean
+      - max
+      entities:
+      - entity: sensor.wp_vorlauf_temperatur
+        name: Vorlauf
+        color: '#e53935'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: statistics-graph
+      title: Rücklauf WP pro Tag
+      chart_type: line
+      period: day
+      days_to_show: 60
+      stat_types:
+      - min
+      - mean
+      - max
+      entities:
+      - entity: sensor.wp_rucklauf_temperatur
+        name: Rücklauf
+        color: '#1e88e5'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: statistics-graph
+      title: Soll (Heizkurve) und Vorlauf – Tagesmittel
+      chart_type: line
+      period: day
+      days_to_show: 60
+      stat_types:
+      - mean
+      entities:
+      - entity: sensor.wp_heizkurve_soll
+        name: Soll
+        color: '#9e9e9e'
+      - entity: sensor.wp_vorlauf_temperatur
+        name: Vorlauf
+        color: '#e53935'
+      - entity: sensor.wp_rucklauf_temperatur
+        name: Rücklauf
+        color: '#1e88e5'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: statistics-graph
+      title: Vorlauf / Rücklauf stündlich (7 Tage)
+      chart_type: line
+      period: hour
+      days_to_show: 7
+      stat_types:
+      - mean
+      entities:
+      - entity: sensor.wp_vorlauf_temperatur
+        name: Vorlauf
+        color: '#e53935'
+      - entity: sensor.wp_rucklauf_temperatur
+        name: Rücklauf
+        color: '#1e88e5'
+      - entity: sensor.wp_aussentemperatur_gefiltert
+        name: Außen
+        color: '#26a69a'
+      grid_options:
+        columns: full
+        rows: 5
+  - type: grid
+    cards:
+    - type: heading
+      heading: Puffer, Heizkreis, Räume
+      icon: mdi:radiator
+    - type: statistics-graph
+      title: Heizkreis Vor- und Rücklauf – Tagesmittel
+      chart_type: line
+      period: day
+      days_to_show: 60
+      stat_types:
+      - mean
+      entities:
+      - entity: sensor.puffer_heizkreis_vorlauf
+        name: Heizkreis Vorlauf
+        color: '#fb8c00'
+      - entity: sensor.puffer_heizkreis_rucklauf
+        name: Heizkreis Rücklauf
+        color: '#26a69a'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: statistics-graph
+      title: Pufferspeicher pro Tag
+      chart_type: line
+      period: day
+      days_to_show: 60
+      stat_types:
+      - min
+      - mean
+      - max
+      entities:
+      - entity: sensor.wp_warmwasser_temperatur
+        name: Puffer
+        color: '#fb8c00'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: statistics-graph
+      title: Raumtemperatur (Referenz) und Außen
+      chart_type: line
+      period: day
+      days_to_show: 60
+      stat_types:
+      - mean
+      entities:
+      - entity: sensor.raumtemperatur_referenz
+        name: Raum
+        color: '#ef6c00'
+      - entity: sensor.wp_aussentemperatur_gefiltert
+        name: Außen
+        color: '#26a69a'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: statistics-graph
+      title: Außentemperatur pro Monat
+      chart_type: line
+      period: month
+      days_to_show: 730
+      stat_types:
+      - min
+      - mean
+      - max
+      entities:
+      - entity: sensor.wp_aussentemperatur_gefiltert
+        name: Außen
+        color: '#26a69a'
+      grid_options:
+        columns: full
+        rows: 5
+- title: Statistik Taktung
+  path: statistik-taktung
+  icon: mdi:restart
+  subview: true
+  back_path: /wp-neu/statistik
+  type: sections
+  max_columns: 2
+  theme: Liquid Glass
+  sections:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Starts und Laufzeit
+      icon: mdi:restart
+    - type: statistics-graph
+      title: Verdichter-Starts pro Tag
+      chart_type: bar
+      period: day
+      days_to_show: 60
+      stat_types:
+      - max
+      entities:
+      - entity: sensor.wp_verdichter_starts_heute
+        name: Starts
+        color: '#fb8c00'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: statistics-graph
+      title: Verdichter-Laufzeit pro Tag (h)
+      chart_type: bar
+      period: day
+      days_to_show: 60
+      stat_types:
+      - max
+      entities:
+      - entity: sensor.wp_verdichter_laufzeit_tag_statistik
+        name: Laufzeit
+        color: '#fb8c00'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: statistics-graph
+      title: Ø Laufzeit pro Start (min)
+      chart_type: line
+      period: day
+      days_to_show: 60
+      stat_types:
+      - mean
+      - max
+      entities:
+      - entity: sensor.wp_mittlere_laufzeit_heute
+        name: Ø Laufzeit
+        color: '#8d6e63'
+      grid_options:
+        columns: full
+        rows: 5
+  - type: grid
+    cards:
+    - type: heading
+      heading: Verdichter und Pumpe
+      icon: mdi:engine
+    - type: statistics-graph
+      title: Verdichterfrequenz pro Tag
+      chart_type: line
+      period: day
+      days_to_show: 60
+      stat_types:
+      - mean
+      - max
+      entities:
+      - entity: sensor.wp_verdichter_frequenz
+        name: Frequenz
+        color: '#fb8c00'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: statistics-graph
+      title: DC-Pumpe Drehzahl pro Tag
+      chart_type: line
+      period: day
+      days_to_show: 60
+      stat_types:
+      - mean
+      - max
+      entities:
+      - entity: sensor.wp_dc_pumpe_drehzahl
+        name: Drehzahl
+        color: '#1e88e5'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: statistics-graph
+      title: Heizstab-Laufzeit pro Tag (min)
+      chart_type: bar
+      period: day
+      days_to_show: 60
+      stat_types:
+      - max
+      entities:
+      - entity: sensor.wp_heizstab_laufzeit_tag_statistik
+        name: Heizstab
+        color: '#e53935'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: markdown
+      content: '**Richtwerte:** Ø Laufzeit pro Start über 20–30 min ist gut, unter 10 min taktet sie zu viel. In der Übergangszeit unter 10–15
+        Starts am Tag.'
+      grid_options:
+        columns: full
+- title: Statistik Abtauung
+  path: statistik-abtauung
+  icon: mdi:snowflake-melt
+  subview: true
+  back_path: /wp-neu/statistik
+  type: sections
+  max_columns: 2
+  theme: Liquid Glass
+  sections:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Abtauungen
+      icon: mdi:snowflake-melt
+    - type: statistics-graph
+      title: Abtauungen pro Tag
+      chart_type: bar
+      period: day
+      days_to_show: 90
+      stat_types:
+      - max
+      entities:
+      - entity: sensor.wp_abtauungen_heute
+        name: Abtauungen
+        color: '#29b6f6'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: statistics-graph
+      title: Abtauzeit pro Tag (min)
+      chart_type: bar
+      period: day
+      days_to_show: 90
+      stat_types:
+      - max
+      entities:
+      - entity: sensor.wp_abtauzeit_tag_statistik
+        name: Abtauzeit
+        color: '#29b6f6'
+      grid_options:
+        columns: full
+        rows: 5
+  - type: grid
+    cards:
+    - type: heading
+      heading: Bedingungen
+      icon: mdi:snowflake-thermometer
+    - type: statistics-graph
+      title: Außentemperatur pro Tag
+      chart_type: line
+      period: day
+      days_to_show: 90
+      stat_types:
+      - min
+      - mean
+      - max
+      entities:
+      - entity: sensor.wp_aussentemperatur_gefiltert
+        name: Außen
+        color: '#26a69a'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: statistics-graph
+      title: Verdampfer pro Tag
+      chart_type: line
+      period: day
+      days_to_show: 90
+      stat_types:
+      - min
+      - mean
+      entities:
+      - entity: sensor.wp_verdampfer_temperatur
+        name: Verdampfer
+        color: '#1e88e5'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: markdown
+      content: Abtauungen sind bei Außentemperaturen um 0 bis +5 °C und hoher Luftfeuchte normal. Auffällig sind Abtauungen schon bei mildem Wetter
+        oder Abstände unter 45 min.
+      grid_options:
+        columns: full
+- title: Statistik Hydraulik
+  path: statistik-hydraulik
+  icon: mdi:arrow-expand-vertical
+  subview: true
+  back_path: /wp-neu/statistik
+  type: sections
+  max_columns: 2
+  theme: Liquid Glass
+  sections:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Spreizung
+      icon: mdi:arrow-expand-vertical
+    - type: statistics-graph
+      title: Spreizung Wärmepumpe pro Tag
+      chart_type: line
+      period: day
+      days_to_show: 60
+      stat_types:
+      - min
+      - mean
+      - max
+      entities:
+      - entity: sensor.wp_spreizung
+        name: WP
+        color: '#fb8c00'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: statistics-graph
+      title: Spreizung Heizkreis pro Tag
+      chart_type: line
+      period: day
+      days_to_show: 60
+      stat_types:
+      - min
+      - mean
+      - max
+      entities:
+      - entity: sensor.heizkreis_spreizung
+        name: Heizkreis
+        color: '#1e88e5'
+      grid_options:
+        columns: full
+        rows: 5
+  - type: grid
+    cards:
+    - type: heading
+      heading: Leitung Außengerät ↔ Puffer
+      icon: mdi:pipe-leak
+    - type: statistics-graph
+      title: Abkühlung auf der Leitung und Außentemperatur
+      chart_type: line
+      period: day
+      days_to_show: 90
+      stat_types:
+      - mean
+      entities:
+      - entity: sensor.wp_leitung_verlust_vorlauf
+        name: Vorlauf (K)
+        color: '#e53935'
+      - entity: sensor.wp_leitung_verlust_rucklauf
+        name: Rücklauf (K)
+        color: '#1e88e5'
+      - entity: sensor.wp_aussentemperatur_gefiltert
+        name: Außen
+        color: '#26a69a'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: statistics-graph
+      title: Puffer-Wärmeverlust pro Tag (kWh)
+      chart_type: bar
+      period: day
+      days_to_show: 60
+      stat_types:
+      - max
+      entities:
+      - entity: sensor.puffer_verlust_heute
+        name: Verlust
+        color: '#fb8c00'
+      grid_options:
+        columns: full
+        rows: 5
+- title: Verläufe 24 h
+  path: statistik-verlauf
+  icon: mdi:chart-timeline-variant
+  subview: true
+  back_path: /wp-neu/statistik
+  type: sections
+  max_columns: 2
+  theme: Liquid Glass
+  sections:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Verläufe (24 h)
+      icon: mdi:chart-timeline-variant
+    - type: history-graph
+      title: Übersicht – Temperaturen (24 h)
+      hours_to_show: 24
+      entities:
+      - entity: sensor.wp_heizkurve_soll
+        name: Soll (Heizkurve)
+        color: '#9e9e9e'
+      - entity: sensor.wp_vorlauf_temperatur
+        name: Vorlauf
+        color: '#e53935'
+      - entity: sensor.wp_rucklauf_temperatur
+        name: Rücklauf
+        color: '#1e88e5'
+      - entity: sensor.wp_warmwasser_temperatur
+        name: Pufferspeicher
+        color: '#fb8c00'
+      - entity: sensor.wp_aussentemperatur_gefiltert
+        name: Außen
+        color: '#26a69a'
+      grid_options:
+        columns: full
+        rows: 8
+    - type: logbook
+      title: Steuerung – Modus-Wechsel (3 Tage)
+      target:
+        entity_id:
+        - select.wp_modus
+      hours_to_show: 72
+      grid_options:
+        columns: full
+        rows: 4
+    - entities:
+      - color: '#e53935'
+        entity: sensor.wp_vorlauf_temperatur
+        name: Vorlauf außen (WP)
+      - color: '#ff8a80'
+        entity: sensor.puffer_wp_vorlauf
+        name: Vorlauf innen (Puffer)
+      - color: '#82b1ff'
+        entity: sensor.puffer_wp_rucklauf_korrigiert
+        name: Rücklauf innen korrigiert
+      - color: '#1e88e5'
+        entity: sensor.wp_rucklauf_temperatur
+        name: Rücklauf außen (WP)
+      grid_options:
+        columns: full
+        rows: 6
+      hours_to_show: 24
+      title: Puffer – Außengerät und Puffer (24 h)
+      type: history-graph
+    - type: history-graph
+      title: Energie – Leistung und Verdichterfrequenz (24 h)
+      hours_to_show: 24
+      entities:
+      - entity: sensor.wp_energiemeter_leistung
+        name: Leistung
+        color: '#fdd835'
+      - entity: sensor.wp_verdichter_frequenz
+        name: Frequenz
+        color: '#fb8c00'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: history-graph
+      title: Abtauung – Abtauverlauf (24 h)
+      hours_to_show: 24
+      entities:
+      - entity: binary_sensor.wp_abtauung_aktiv
+        name: Abtauung
+      - entity: sensor.wp_verdampfer_temperatur
+        name: Verdampfer
+        color: '#1e88e5'
+      - entity: sensor.wp_aussentemperatur
+        name: Außen
+        color: '#26a69a'
+      - entity: sensor.wp_aussentemperatur_gefiltert
+        name: Außen gefiltert
+        color: '#9e9e9e'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: history-graph
+      title: Diagnose – Expansionsventile (24 h)
+      hours_to_show: 24
+      entities:
+      - entity: sensor.wp_hauptexpansionsventil_offnung
+        name: Haupt
+        color: '#ab47bc'
+      - entity: sensor.wp_hilfsexpansionsventil_offnung
+        name: Hilfs
+        color: '#9e9e9e'
+      grid_options:
+        columns: full
+        rows: 5
+  - type: grid
+    cards:
+    - type: heading
+      heading: Weitere Verläufe
+      icon: mdi:chart-line
+    - type: history-graph
+      title: Übersicht – Verdichter & Leistung (24 h)
+      hours_to_show: 24
+      entities:
+      - entity: sensor.wp_verdichter_frequenz
+        name: Frequenz
+        color: '#fb8c00'
+      - entity: sensor.wp_wirkleistung
+        name: Leistung
+        color: '#fdd835'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: history-graph
+      title: Puffer – Pufferspeicher (24 h)
+      hours_to_show: 24
+      entities:
+      - entity: sensor.puffer_wp_vorlauf
+        name: WP Vorlauf
+        color: '#e53935'
+      - entity: sensor.puffer_wp_rucklauf
+        name: WP Rücklauf
+        color: '#1e88e5'
+      - entity: sensor.puffer_heizkreis_vorlauf
+        name: Heizkreis Vorlauf
+        color: '#fb8c00'
+      - entity: sensor.puffer_heizkreis_rucklauf
+        name: Heizkreis Rücklauf
+        color: '#26a69a'
+      grid_options:
+        columns: full
+        rows: 6
+    - type: history-graph
+      title: Verdichter – Verdichter (24 h)
+      hours_to_show: 24
+      entities:
+      - entity: sensor.wp_verdichter_frequenz
+        name: Frequenz
+        color: '#fb8c00'
+      - entity: sensor.wp_verdichter_zielfrequenz
+        name: Zielfrequenz
+        color: '#9e9e9e'
+      - entity: sensor.wp_wirkleistung
+        name: Leistung
+        color: '#fdd835'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: history-graph
+      title: Energie – Strom je Phase (24 h)
+      hours_to_show: 24
+      entities:
+      - entity: sensor.wp_energiemeter_strom_a
+        name: L1
+        color: '#8d6e63'
+      - entity: sensor.wp_energiemeter_strom_b
+        name: L2
+        color: '#212121'
+      - entity: sensor.wp_energiemeter_strom_c
+        name: L3
+        color: '#9e9e9e'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: history-graph
+      title: Diagnose – Kältekreis-Temperaturen (24 h)
+      hours_to_show: 24
+      entities:
+      - entity: sensor.wp_heissgas_temperatur
+        name: Heißgas
+        color: '#e53935'
+      - entity: sensor.wp_sauggas_temperatur
+        name: Sauggas
+        color: '#1e88e5'
+      - entity: sensor.wp_verdampfer_temperatur
+        name: Verdampfer
+        color: '#26a69a'
+      grid_options:
+        columns: full
+        rows: 5
+- title: Energiebilanz
+  path: statistik-energiebilanz
+  icon: mdi:home-lightning-bolt
+  subview: true
+  back_path: /wp-neu/statistik
+  type: sections
+  max_columns: 2
+  theme: Liquid Glass
+  sections:
+  - type: grid
+    cards:
+    - type: heading
+      heading: Dieser Monat
+      icon: mdi:calendar-month
+    - type: tile
+      entity: sensor.haus_verbrauch_monat
+      name: Haus gesamt
+      color: brown
+      icon: mdi:home-lightning-bolt
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: sensor.pv_ertrag_monat
+      name: Solar-Ertrag
+      color: yellow
+      icon: mdi:solar-power
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: sensor.haus_verbrauch_minus_pv_monat
+      name: Verbrauch − Solar
+      color: grey
+      icon: mdi:scale-balance
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: sensor.netzbezug_monat
+      name: Netzbezug (gemessen)
+      color: red
+      icon: mdi:transmission-tower-import
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: sensor.wp_energie_monat
+      name: Wärmepumpe
+      color: orange
+      icon: mdi:heat-pump
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: sensor.einspeisung_monat
+      name: Einspeisung
+      color: green
+      icon: mdi:transmission-tower-export
+      grid_options:
+        columns: 4
+    - type: markdown
+      grid_options:
+        columns: full
+      content: '{% set h = states(''sensor.haus_verbrauch_monat'') | float(0) %}{% set w = states(''sensor.wp_energie_monat'') | float(0) %}{%
+        set n = states(''sensor.netzbezug_monat'') | float(0) %}{% set p = states(''sensor.pv_ertrag_monat'') | float(0) %}{% set e = states(''sensor.einspeisung_monat'')
+        | float(0) %}Wärmepumpe = **{{ (w / h * 100) | round(0) if h > 0 else 0 }} %** vom Hausverbrauch · Haus ohne WP: **{{ (h - w) | round(0)
+        }} kWh** · Solar selbst genutzt: **{{ (p - e) | round(0) }} kWh** ({{ ((p - e) / p * 100) | round(0) if p > 0 else 0 }} %)
+
+
+        *Verbrauch − Solar* ist die rechnerische Differenz. Der *gemessene Netzbezug* liegt meist höher, weil eingespeister Strom und Batterieverluste
+        nicht im Haus ankommen.'
+  - type: grid
+    column_span: 2
+    cards:
+    - type: custom:energiebilanz-card
+      mode: monate
+      title: Pro Monat (12 Monate)
+  - type: grid
+    column_span: 2
+    cards:
+    - type: custom:energiebilanz-card
+      mode: tage
+      title: Pro Tag (30 Tage)
+  - type: grid
+    cards:
+    - type: heading
+      heading: Pro Tag (30 Tage)
+      icon: mdi:calendar-today
+    - type: statistics-graph
+      title: Verbrauch und Solar pro Tag
+      chart_type: bar
+      period: day
+      days_to_show: 30
+      stat_types:
+      - change
+      entities:
+      - entity: sensor.total_consumed_energy
+        name: Haus gesamt
+        color: '#8d6e63'
+      - entity: sensor.total_pv_generation
+        name: Solar-Ertrag
+        color: '#fdd835'
+      grid_options:
+        columns: full
+        rows: 5
+    - type: statistics-graph
+      title: Netzbezug und Wärmepumpe pro Tag
+      chart_type: bar
+      period: day
+      days_to_show: 30
+      stat_types:
+      - change
+      entities:
+      - entity: sensor.total_imported_energy
+        name: Netzbezug
+        color: '#e53935'
+      - entity: sensor.wp_energiemeter_energie
+        name: Wärmepumpe
+        color: '#fb8c00'
+      grid_options:
+        columns: full
+        rows: 5
+  - type: grid
+    column_span: 2
+    cards:
+    - type: heading
+      heading: Pro Monat (12 Monate)
+      icon: mdi:calendar-range
+    - type: statistics-graph
+      title: Haus gesamt, Netzbezug und Wärmepumpe pro Monat
+      chart_type: bar
+      period: month
+      days_to_show: 365
+      stat_types:
+      - change
+      entities:
+      - entity: sensor.total_consumed_energy
+        name: Haus gesamt
+        color: '#8d6e63'
+      - entity: sensor.total_imported_energy
+        name: Netzbezug
+        color: '#e53935'
+      - entity: sensor.wp_energiemeter_energie
+        name: Wärmepumpe
+        color: '#fb8c00'
+      grid_options:
+        columns: full
+        rows: 6
+    - type: statistics-graph
+      title: Solar-Ertrag und Einspeisung pro Monat
+      chart_type: bar
+      period: month
+      days_to_show: 365
+      stat_types:
+      - change
+      entities:
+      - entity: sensor.total_pv_generation
+        name: Solar-Ertrag
+        color: '#fdd835'
+      - entity: sensor.total_exported_energy
+        name: Einspeisung
+        color: '#43a047'
+      grid_options:
+        columns: full
+        rows: 5

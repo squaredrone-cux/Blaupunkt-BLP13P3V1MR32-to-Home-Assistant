@@ -1,0 +1,75 @@
+blueprint:
+  name: Heizkreispumpe folgt Wärmepumpe
+  description: >
+    Schaltet die Heizkreispumpe (hinter einem Trennpuffer) ein, solange die
+    Wärmepumpe eingeschaltet ist, und aus, wenn sie ausgeschaltet ist. Kurze
+    Verbindungsabbrüche (nicht verfügbar) schalten nichts. Alle 15 Minuten wird
+    abgeglichen, falls die Steckdose zwischendurch nicht erreichbar war.
+  domain: automation
+  input:
+    waermepumpe:
+      name: Ein/Aus der Wärmepumpe
+      description: z. B. switch.wp_power aus dem Modbus-Paket
+      selector:
+        entity:
+          filter: { domain: switch }
+    pumpe:
+      name: Heizkreispumpe
+      description: Schalter/Steckdose der Pumpe
+      selector:
+        entity:
+          filter: { domain: switch }
+    freigabe:
+      name: Ein/Aus-Schalter (Helfer)
+      selector:
+        entity:
+          filter: { domain: input_boolean }
+
+mode: restart
+
+triggers:
+  - trigger: state
+    entity_id: !input waermepumpe
+    to: "on"
+    for: "00:00:30"
+  - trigger: state
+    entity_id: !input waermepumpe
+    to: "off"
+    for: "00:01:00"
+  - trigger: state
+    entity_id: !input freigabe
+    to: "on"
+  - trigger: homeassistant
+    event: start
+  - trigger: time_pattern
+    minutes: /15
+
+conditions:
+  - condition: state
+    entity_id: !input freigabe
+    state: "on"
+
+actions:
+  - choose:
+      - conditions:
+          - condition: state
+            entity_id: !input waermepumpe
+            state: "on"
+          - condition: state
+            entity_id: !input pumpe
+            state: "off"
+        sequence:
+          - action: switch.turn_on
+            target:
+              entity_id: !input pumpe
+      - conditions:
+          - condition: state
+            entity_id: !input waermepumpe
+            state: "off"
+          - condition: state
+            entity_id: !input pumpe
+            state: "on"
+        sequence:
+          - action: switch.turn_off
+            target:
+              entity_id: !input pumpe

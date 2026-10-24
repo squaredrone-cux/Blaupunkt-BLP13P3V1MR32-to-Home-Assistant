@@ -1,0 +1,73 @@
+# ============================================================================
+# OPTIONAL: Energiebilanz pro Tag und Monat (Haus, PV, Netz, Wärmepumpe)
+# für die Karte www/energiebilanz-card.js
+# ============================================================================
+# ANPASSEN: die vier Quellen unten sind die Gesamtzähler (kWh, steigend) deines
+# Wechselrichters bzw. Smart Meters. Die Namen hier stammen von einem Sungrow-
+# Hybrid-Wechselrichter (Integration "Sungrow Modbus").
+# Die Listen füllen sich ab dem Tag der Installation selbst.
+# ============================================================================
+utility_meter:
+  haus_verbrauch_tag:   { name: Haus Verbrauch Tag,   source: sensor.total_consumed_energy, cycle: daily }
+  haus_verbrauch_monat: { name: Haus Verbrauch Monat, source: sensor.total_consumed_energy, cycle: monthly }
+  pv_ertrag_tag:        { name: PV Ertrag Tag,        source: sensor.total_pv_generation,  cycle: daily }
+  pv_ertrag_monat:      { name: PV Ertrag Monat,      source: sensor.total_pv_generation,  cycle: monthly }
+  netzbezug_tag:        { name: Netzbezug Tag,        source: sensor.total_imported_energy, cycle: daily }
+  netzbezug_monat:      { name: Netzbezug Monat,      source: sensor.total_imported_energy, cycle: monthly }
+  einspeisung_tag:      { name: Einspeisung Tag,      source: sensor.total_exported_energy, cycle: daily }
+  einspeisung_monat:    { name: Einspeisung Monat,    source: sensor.total_exported_energy, cycle: monthly }
+
+template:
+  - sensor:
+      - name: Haus Verbrauch minus PV Monat
+        unique_id: wp_pkg_haus_verbrauch_minus_pv_monat
+        state_class: measurement
+        unit_of_measurement: "kWh"
+        availability: "{{ states('sensor.haus_verbrauch_monat') | is_number and states('sensor.pv_ertrag_monat') | is_number }}"
+        state: "{{ (states('sensor.haus_verbrauch_monat') | float - states('sensor.pv_ertrag_monat') | float) | round(1) }}"
+  - triggers:
+      - trigger: time
+        at: "23:59:30"
+        id: tag_ende
+      - trigger: homeassistant
+        event: start
+        id: init
+      - trigger: event
+        event_type: event_template_reloaded
+        id: init
+    sensor:
+      - name: Energiebilanz Tage
+        unique_id: energiebilanz_tage
+        icon: mdi:table
+        state: "{{ now().date() | string }}"
+        attributes:
+          tage: >-
+            {% set alt = this.attributes.tage if this.attributes is defined and this.attributes.tage is defined else [] %}
+            {% if trigger.id == 'tag_ende' %}
+            {% set heute = now().date() | string %}
+            {% set neu = {'d': heute, 'h': states('sensor.haus_verbrauch_tag') | float(0) | round(1), 'p': states('sensor.pv_ertrag_tag') | float(0) | round(1), 'n': states('sensor.netzbezug_tag') | float(0) | round(1), 'e': states('sensor.einspeisung_tag') | float(0) | round(1), 'w': states('sensor.wp_energie_tag') | float(0) | round(1)} %}
+            {{ ((alt | rejectattr('d', 'eq', heute) | list) + [neu])[-31:] }}
+            {% else %}{{ alt }}{% endif %}
+  - triggers:
+      - trigger: time
+        at: "23:59:40"
+        id: monat_ende
+      - trigger: homeassistant
+        event: start
+        id: init
+      - trigger: event
+        event_type: event_template_reloaded
+        id: init
+    sensor:
+      - name: Energiebilanz Monate
+        unique_id: energiebilanz_monate
+        icon: mdi:table-large
+        state: "{{ now().strftime('%Y-%m') }}"
+        attributes:
+          monate: >-
+            {% set alt = this.attributes.monate if this.attributes is defined and this.attributes.monate is defined else [] %}
+            {% if trigger.id == 'monat_ende' and (now() + timedelta(days=1)).day == 1 %}
+            {% set m = now().strftime('%Y-%m') %}
+            {% set neu = {'m': m, 'h': states('sensor.haus_verbrauch_monat') | float(0) | round(1), 'p': states('sensor.pv_ertrag_monat') | float(0) | round(1), 'n': states('sensor.netzbezug_monat') | float(0) | round(1), 'e': states('sensor.einspeisung_monat') | float(0) | round(1), 'w': states('sensor.wp_energie_monat') | float(0) | round(1)} %}
+            {{ ((alt | rejectattr('m', 'eq', m) | list) + [neu])[-13:] }}
+            {% else %}{{ alt }}{% endif %}

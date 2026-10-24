@@ -1,0 +1,1458 @@
+# ============================================================================
+# Home Assistant – Wärmepumpe PW58322 über Modbus (Waveshare RS485 to ETH)
+# ============================================================================
+# Home-Assistant-Paket: in den Ordner packages/ legen (siehe README).
+# Gateway-Adressen kommen aus secrets.yaml:
+#   wp_modbus_host: 192.168.x.y
+#   puffer_modbus_host: 192.168.x.z
+#
+# WAVESHARE-GATEWAY (Weboberfläche / VirCom-Tool):
+#   - Baudrate 9600, 8 Datenbits, 1 Stopbit, keine Parität
+#   - Work Mode: TCP Server, Port z.B. 502 (Standard bei vielen Modellen: 4196)
+#   - Transfer Protocol:
+#       * "None"/transparent        -> type: rtuovertcp
+#       * "Modbus TCP to RTU"       -> type: tcp   (unten verwendet)
+#
+# SLAVE-ADRESSE: per DIP-Schalter (#1 = alle OFF = Adresse 1). Nach Änderung
+# Wärmepumpe neu starten.
+#
+# HINWEISE:
+#   - Alle Register sind Holding-Register (Befehl 03H), Adressen sind
+#     dezimal umgerechnet (0x8002 = 32770).
+#   - Abfrageintervall der Anleitung: > 200 ms -> message_wait_milliseconds: 250
+#   - Schreibzugriffe landen im Flash der Wärmepumpe -> NUR bei Änderung
+#     schreiben, keine zyklischen Automationen mit Schreibbefehlen!
+#   - Skalierungen (scale) sind laut Doku: Temperaturen 0,5 °C, Rücklauf 0,1 °C.
+#     Strom, Spannung, Druck-Temp: Skalierung ist nicht dokumentiert -> prüfen
+#     und ggf. anpassen.
+# ============================================================================
+
+modbus:
+  - name: waermepumpe
+    type: tcp                   # Gateway-Protokoll "Modbus TCP to RTU"
+    host: !secret wp_modbus_host      # IP des Waveshare-Gateways an der Wärmepumpe
+    port: 502                   # Port des Gateways anpassen (z.B. 4196)
+    delay: 2
+    timeout: 5
+    message_wait_milliseconds: 250
+
+    sensors:
+      # ---------------- Temperaturen ----------------
+      - name: WP Rücklauf Temperatur
+        unique_id: wp_ruecklauf_temperatur
+        slave: 1
+        address: 32782          # 0x800E
+        input_type: holding
+        data_type: int16
+        scale: 0.1
+        precision: 1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        scan_interval: 30
+
+      - name: WP Vorlauf Temperatur
+        unique_id: wp_vorlauf_temperatur
+        slave: 1
+        address: 32786          # 0x8012
+        input_type: holding
+        data_type: int16
+        scale: 0.5
+        precision: 1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        scan_interval: 30
+
+      - name: WP Warmwasser Temperatur
+        unique_id: wp_warmwasser_temperatur
+        slave: 1
+        address: 32783          # 0x800F
+        input_type: holding
+        data_type: int16
+        scale: 0.5
+        precision: 1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        scan_interval: 30
+
+      - name: WP Außentemperatur
+        unique_id: wp_aussentemperatur
+        slave: 1
+        address: 32785          # 0x8011
+        input_type: holding
+        data_type: int16
+        scale: 0.5
+        precision: 1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        scan_interval: 30
+
+      - name: WP Sauggas Temperatur
+        unique_id: wp_sauggas_temperatur
+        slave: 1
+        address: 32789          # 0x8015
+        input_type: holding
+        data_type: int16
+        scale: 0.5
+        precision: 1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        scan_interval: 60
+
+      - name: WP Verdampfer Temperatur
+        unique_id: wp_verdampfer_temperatur
+        slave: 1
+        address: 32790          # 0x8016 externe Spule
+        input_type: holding
+        data_type: int16
+        scale: 0.5
+        precision: 1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        scan_interval: 60
+
+      - name: WP Kühlspule Temperatur
+        unique_id: wp_kuehlspule_temperatur
+        slave: 1
+        address: 32794          # 0x801A
+        input_type: holding
+        data_type: int16
+        scale: 0.5
+        precision: 1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        scan_interval: 60
+
+      - name: WP Heißgas Temperatur
+        unique_id: wp_heissgas_temperatur
+        slave: 1
+        address: 32795          # 0x801B
+        input_type: holding
+        data_type: int16
+        scale: 0.5
+        precision: 1
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        scan_interval: 30
+
+      - name: WP Niederdruck Umrechnungstemperatur
+        unique_id: wp_niederdruck_umrechnungstemperatur
+        slave: 1
+        address: 32808          # 0x8028 (Skalierung unbekannt)
+        input_type: holding
+        data_type: int16
+        scale: 1
+        precision: 1
+        unit_of_measurement: "°C"
+        state_class: measurement
+        scan_interval: 60
+
+      # ---------------- Verdichter / Inverter ----------------
+      - name: WP Verdichter Frequenz
+        unique_id: wp_verdichter_frequenz
+        slave: 1
+        address: 32798          # 0x801E
+        input_type: holding
+        data_type: uint16
+        unit_of_measurement: "Hz"
+        device_class: frequency
+        state_class: measurement
+        scan_interval: 30
+
+      - name: WP Verdichter Zielfrequenz
+        unique_id: wp_verdichter_zielfrequenz
+        slave: 1
+        address: 32804          # 0x8024
+        input_type: holding
+        data_type: uint16
+        unit_of_measurement: "Hz"
+        device_class: frequency
+        state_class: measurement
+        scan_interval: 30
+
+      - name: WP Verdichter Strom
+        unique_id: wp_verdichter_strom
+        slave: 1
+        address: 32805          # 0x8025 (Skalierung ggf. 0.1 -> prüfen)
+        input_type: holding
+        data_type: uint16
+        scale: 1
+        precision: 1
+        unit_of_measurement: "A"
+        device_class: current
+        state_class: measurement
+        scan_interval: 30
+
+      - name: WP DC Bus Spannung
+        unique_id: wp_dc_bus_spannung
+        slave: 1
+        address: 32801          # 0x8021
+        input_type: holding
+        data_type: uint16
+        scale: 1
+        unit_of_measurement: "V"
+        device_class: voltage
+        state_class: measurement
+        scan_interval: 60
+
+      - name: WP Inverter Fehler Low
+        unique_id: wp_inverter_fehler_low
+        slave: 1
+        address: 32799          # 0x801F
+        input_type: holding
+        data_type: uint16
+        scan_interval: 60
+
+      - name: WP Inverter Fehler High
+        unique_id: wp_inverter_fehler_high
+        slave: 1
+        address: 32800          # 0x8020
+        input_type: holding
+        data_type: uint16
+        scan_interval: 60
+
+      # ---------------- Ventile / Lüfter / Pumpe ----------------
+      - name: WP Hauptexpansionsventil Öffnung
+        unique_id: wp_haupt_eev
+        slave: 1
+        address: 32796          # 0x801C
+        input_type: holding
+        data_type: uint16
+        state_class: measurement
+        scan_interval: 60
+
+      - name: WP Hilfsexpansionsventil Öffnung
+        unique_id: wp_hilfs_eev
+        slave: 1
+        address: 32797          # 0x801D
+        input_type: holding
+        data_type: uint16
+        state_class: measurement
+        scan_interval: 60
+
+      - name: WP Lüfter Drehzahl
+        unique_id: wp_luefter_drehzahl
+        slave: 1
+        address: 32806          # 0x8026
+        input_type: holding
+        data_type: uint16
+        unit_of_measurement: "rpm"
+        state_class: measurement
+        scan_interval: 60
+
+      - name: WP DC Pumpe Drehzahl
+        unique_id: wp_dc_pumpe_drehzahl
+        slave: 1
+        address: 32810          # 0x802A
+        input_type: holding
+        data_type: uint16
+        state_class: measurement
+        scan_interval: 60
+
+      # ---------------- Status-/Flag-Register (Rohwerte) ----------------
+      - name: WP Steuerflags 1
+        unique_id: wp_steuerflags_1
+        slave: 1
+        address: 0              # 0x0000, Bit0 = Power ON/OFF
+        input_type: holding
+        data_type: uint16
+        scan_interval: 15
+
+      - name: WP Betriebsmodus Register
+        unique_id: wp_betriebsmodus_register
+        slave: 1
+        address: 4              # 0x0004: 0=WW 1=Heizen 2=Kühlen 3=WW+Heizen 4=WW+Kühlen
+        input_type: holding
+        data_type: uint16
+        scan_interval: 30
+
+      - name: WP Modus Freigaben
+        unique_id: wp_modus_freigaben
+        slave: 1
+        address: 32771          # 0x8003, Bit7 = Abtauung
+        input_type: holding
+        data_type: uint16
+        scan_interval: 30
+
+      - name: WP Ausgänge 1
+        unique_id: wp_ausgange_1
+        slave: 1
+        address: 32772          # 0x8004, Bit0 Verdichter, Bit5 Lüfter, Bit6 4-Wege-Ventil
+        input_type: holding
+        data_type: uint16
+        scan_interval: 30
+
+      - name: WP Ausgänge 2
+        unique_id: wp_ausgange_2
+        slave: 1
+        address: 32773          # 0x8005, Bit0 Wannenheizung, Bit5 Zusatzheizung, Bit6 3-Wege, Bit7 WW-Heizstab
+        input_type: holding
+        data_type: uint16
+        scan_interval: 30
+
+      - name: WP Ausgänge 3
+        unique_id: wp_ausgange_3
+        slave: 1
+        address: 32774          # 0x8006, Bit0 Wasserpumpe, Bit1 Kurbelwannenheizung
+        input_type: holding
+        data_type: uint16
+        scan_interval: 30
+
+      - name: WP Fehler 1
+        unique_id: wp_fehler_1
+        slave: 1
+        address: 32775          # 0x8007
+        input_type: holding
+        data_type: uint16
+        scan_interval: 30
+
+      - name: WP Fehler 2
+        unique_id: wp_fehler_2
+        slave: 1
+        address: 32776          # 0x8008
+        input_type: holding
+        data_type: uint16
+        scan_interval: 30
+
+      - name: WP Fehler 3
+        unique_id: wp_fehler_3
+        slave: 1
+        address: 32777          # 0x8009
+        input_type: holding
+        data_type: uint16
+        scan_interval: 30
+
+      - name: WP Fehler 4
+        unique_id: wp_fehler_4
+        slave: 1
+        address: 32778          # 0x800A
+        input_type: holding
+        data_type: uint16
+        scan_interval: 30
+
+      - name: WP Fehler 5
+        unique_id: wp_fehler_5
+        slave: 1
+        address: 32779          # 0x800B
+        input_type: holding
+        data_type: uint16
+        scan_interval: 30
+
+      - name: WP Fehler 6
+        unique_id: wp_fehler_6
+        slave: 1
+        address: 32780          # 0x800C (Frostschutz)
+        input_type: holding
+        data_type: uint16
+        scan_interval: 30
+
+      - name: WP Fehler 7
+        unique_id: wp_fehler_7
+        slave: 1
+        address: 32781          # 0x800D
+        input_type: holding
+        data_type: uint16
+        scan_interval: 30
+
+      # ---------------- Sollwerte (lesen) ----------------
+      - name: WP Soll Warmwasser
+        unique_id: wp_soll_warmwasser
+        slave: 1
+        address: 143            # 0x008F P03, 28~60 °C
+        input_type: holding
+        data_type: int16
+        unit_of_measurement: "°C"
+        device_class: temperature
+        scan_interval: 60
+
+      - name: WP Soll Kühlen
+        unique_id: wp_soll_kuehlen
+        slave: 1
+        address: 144            # 0x0090 P04, 7~30 °C
+        input_type: holding
+        data_type: int16
+        unit_of_measurement: "°C"
+        device_class: temperature
+        scan_interval: 60
+
+      - name: WP Soll Heizen
+        unique_id: wp_soll_heizen
+        slave: 1
+        address: 145            # 0x0091 P05, 15~50 °C
+        input_type: holding
+        data_type: int16
+        unit_of_measurement: "°C"
+        device_class: temperature
+        scan_interval: 60
+
+      - name: WP Wassertemperatur Kompensation
+        unique_id: wp_wassertemp_kompensation
+        slave: 1
+        address: 146            # 0x0092 P08, -5~15 °C
+        input_type: holding
+        data_type: int16
+        unit_of_measurement: "°C"
+        scan_interval: 60
+
+      # ---------------- Einstellungen / Parameter (selten geändert) ----------------
+      - name: WP Steuerflags 2
+        unique_id: wp_steuerflags_2
+        slave: 1
+        address: 1              # 0x0001, Bit4 Powerful, Bit5 Silent, Bit6 P22 Automatik
+        input_type: holding
+        data_type: uint16
+        scan_interval: 30
+
+      - name: WP Steuerflags 3
+        unique_id: wp_steuerflags_3
+        slave: 1
+        address: 2              # 0x0002, Bit1 Urlaubsmodus
+        input_type: holding
+        data_type: uint16
+        scan_interval: 30
+
+      - name: WP P09 Abtaufrequenz Ist
+        unique_id: wp_p09_abtaufrequenz_ist
+        slave: 1
+        address: 5            # P09
+        input_type: holding
+        data_type: uint16
+        unit_of_measurement: "Hz"
+        scan_interval: 300
+
+      - name: WP P10 Abtauzyklus Ist
+        unique_id: wp_p10_abtauzyklus_ist
+        slave: 1
+        address: 6            # P10
+        input_type: holding
+        data_type: uint16
+        unit_of_measurement: "min"
+        scan_interval: 300
+
+      - name: WP P11 Abtau Start Spulentemp Ist
+        unique_id: wp_p11_abtau_start_spulentemp_ist
+        slave: 1
+        address: 147            # P11
+        input_type: holding
+        data_type: int16
+        unit_of_measurement: "°C"
+        scan_interval: 300
+
+      - name: WP P12 Abtauzeit Ist
+        unique_id: wp_p12_abtauzeit_ist
+        slave: 1
+        address: 7            # P12
+        input_type: holding
+        data_type: uint16
+        unit_of_measurement: "min"
+        scan_interval: 300
+
+      - name: WP P13 Abtau Ende Spulentemp Ist
+        unique_id: wp_p13_abtau_ende_spulentemp_ist
+        slave: 1
+        address: 148            # P13
+        input_type: holding
+        data_type: int16
+        unit_of_measurement: "°C"
+        scan_interval: 300
+
+      - name: WP P14 Abtau Differenz 1 Ist
+        unique_id: wp_p14_abtau_differenz_1_ist
+        slave: 1
+        address: 149            # P14
+        input_type: holding
+        data_type: uint16
+        unit_of_measurement: "K"
+        scan_interval: 300
+
+      - name: WP P15 Abtau Differenz 2 Ist
+        unique_id: wp_p15_abtau_differenz_2_ist
+        slave: 1
+        address: 150            # P15
+        input_type: holding
+        data_type: uint16
+        unit_of_measurement: "K"
+        scan_interval: 300
+
+      - name: WP P16 Abtau Umgebungstemp Ist
+        unique_id: wp_p16_abtau_umgebungstemp_ist
+        slave: 1
+        address: 151            # P16
+        input_type: holding
+        data_type: int16
+        unit_of_measurement: "°C"
+        scan_interval: 300
+
+      - name: WP P01 Neustart Diff Heizen Kuehlen Ist
+        unique_id: wp_p01_neustart_diff_heizen_kuehlen_ist
+        slave: 1
+        address: 141            # P01
+        input_type: holding
+        data_type: uint16
+        unit_of_measurement: "K"
+        scan_interval: 300
+
+      - name: WP P02 Neustart Diff Warmwasser Ist
+        unique_id: wp_p02_neustart_diff_warmwasser_ist
+        slave: 1
+        address: 142            # P02
+        input_type: holding
+        data_type: uint16
+        unit_of_measurement: "K"
+        scan_interval: 300
+
+      - name: WP P17 Desinfektion Zyklus Ist
+        unique_id: wp_p17_desinfektion_zyklus_ist
+        slave: 1
+        address: 230            # P17
+        input_type: holding
+        data_type: uint16
+        unit_of_measurement: "d"
+        scan_interval: 300
+
+      - name: WP P18 Desinfektion Startzeit Ist
+        unique_id: wp_p18_desinfektion_startzeit_ist
+        slave: 1
+        address: 231            # P18
+        input_type: holding
+        data_type: uint16
+        unit_of_measurement: "h"
+        scan_interval: 300
+
+      - name: WP P19 Desinfektion Haltezeit Ist
+        unique_id: wp_p19_desinfektion_haltezeit_ist
+        slave: 1
+        address: 232            # P19
+        input_type: holding
+        data_type: uint16
+        unit_of_measurement: "min"
+        scan_interval: 300
+
+      - name: WP P20 Desinfektion Solltemp Ist
+        unique_id: wp_p20_desinfektion_solltemp_ist
+        slave: 1
+        address: 233            # P20
+        input_type: holding
+        data_type: uint16
+        unit_of_measurement: "°C"
+        scan_interval: 300
+
+      - name: WP P21 Desinfektion WP Solltemp Ist
+        unique_id: wp_p21_desinfektion_wp_solltemp_ist
+        slave: 1
+        address: 234            # P21
+        input_type: holding
+        data_type: uint16
+        unit_of_measurement: "°C"
+        scan_interval: 300
+
+      - name: WP P23 Heizkurve Aussentemp Ist
+        unique_id: wp_p23_heizkurve_aussentemp_ist
+        slave: 1
+        address: 235            # P23
+        input_type: holding
+        data_type: uint16
+        unit_of_measurement: "°C"
+        scan_interval: 300
+
+      - name: WP P24 Heizkurve Faktor Ist
+        unique_id: wp_p24_heizkurve_faktor_ist
+        slave: 1
+        address: 236            # P24
+        input_type: holding
+        data_type: uint16
+        scan_interval: 300
+
+      - name: WP P26 Heizstab Aussentemp Ist
+        unique_id: wp_p26_heizstab_aussentemp_ist
+        slave: 1
+        address: 237            # P26
+        input_type: holding
+        data_type: int16
+        unit_of_measurement: "°C"
+        scan_interval: 300
+
+      - name: WP P27 Heizstab Verzoegerung Ist
+        unique_id: wp_p27_heizstab_verzoegerung_ist
+        slave: 1
+        address: 254            # P27
+        input_type: holding
+        data_type: uint16
+        scan_interval: 300
+
+      - name: WP Urlaub Solltemperatur Ist
+        unique_id: wp_urlaub_solltemperatur_ist
+        slave: 1
+        address: 242            # 0x00F2
+        input_type: holding
+        data_type: uint16
+        unit_of_measurement: "°C"
+        scan_interval: 300
+      # ---------------- DC-Umwälzpumpe (F-Parameter, 0x0101-0x010B) ----------------
+
+      - name: WP F2 Pumpe Betriebsart Ist
+        unique_id: wp_f2_pumpe_betriebsart_ist
+        slave: 1
+        address: 257            # 0x0101
+        input_type: holding
+        data_type: uint16
+        scan_interval: 300
+
+      - name: WP F3 Pumpe Taktzeit Ist
+        unique_id: wp_f3_pumpe_taktzeit_ist
+        slave: 1
+        address: 258            # 0x0102
+        input_type: holding
+        data_type: uint16
+        unit_of_measurement: "min"
+        scan_interval: 300
+
+      - name: WP F4 DC Pumpe Modus Ist
+        unique_id: wp_f4_dc_pumpe_modus_ist
+        slave: 1
+        address: 261            # 0x0105
+        input_type: holding
+        data_type: uint16
+        scan_interval: 300
+
+      - name: WP F5 DC Pumpe Regelzyklus Ist
+        unique_id: wp_f5_dc_pumpe_regelzyklus_ist
+        slave: 1
+        address: 262            # 0x0106
+        input_type: holding
+        data_type: uint16
+        unit_of_measurement: "s"
+        scan_interval: 300
+
+      - name: WP F6 DC Pumpe Handdrehzahl Ist
+        unique_id: wp_f6_dc_pumpe_handdrehzahl_ist
+        slave: 1
+        address: 263            # 0x0107
+        input_type: holding
+        data_type: uint16
+        unit_of_measurement: "%"
+        scan_interval: 300
+
+      - name: WP F7 DC Pumpe Max Ist
+        unique_id: wp_f7_dc_pumpe_max_ist
+        slave: 1
+        address: 264            # 0x0108
+        input_type: holding
+        data_type: uint16
+        unit_of_measurement: "%"
+        scan_interval: 300
+
+      - name: WP F8 DC Pumpe Min Ist
+        unique_id: wp_f8_dc_pumpe_min_ist
+        slave: 1
+        address: 265            # 0x0109
+        input_type: holding
+        data_type: uint16
+        unit_of_measurement: "%"
+        scan_interval: 300
+
+      - name: WP F9 DC Pumpe Regelschritt Ist
+        unique_id: wp_f9_dc_pumpe_regelschritt_ist
+        slave: 1
+        address: 266            # 0x010A
+        input_type: holding
+        data_type: uint16
+        unit_of_measurement: "%"
+        scan_interval: 300
+
+      - name: WP F10 DC Pumpe Soll Spreizung Ist
+        unique_id: wp_f10_dc_pumpe_soll_spreizung_ist
+        slave: 1
+        address: 267            # 0x010B
+        input_type: holding
+        data_type: uint16
+        unit_of_measurement: "K"
+        scan_interval: 300
+
+
+  # ==========================================================================
+  # Wellpro-ADAM-Modul (DS18B20-Eingänge) / Fühler am Pufferspeicher
+  # Zweites Waveshare-Gateway (optional). Gateway-Protokoll wie beim
+  # ersten Gateway: "Modbus TCP to RTU" -> type: tcp. Falls dort "transparent"
+  # eingestellt ist, stattdessen type: rtuovertcp verwenden.
+  #
+  # Holding-Register 0x00-0x07 = Kanal 1-8 (Data1-Data8), Standard-Slave 1.
+  # Rohwert 65535 (0xFFFF) = Fühler nicht angeschlossen.
+  # Rohwert > 10000 = negative Temperatur: -(Rohwert-10000)/10 °C
+  # sonst Rohwert / 10 = °C  (Umrechnung in den Template-Sensoren unten)
+  # ==========================================================================
+  - name: puffer
+    type: tcp
+    host: !secret puffer_modbus_host  # IP des Gateways am Puffer
+    port: 502                   # Port des Gateways anpassen (z.B. 4196)
+    delay: 2
+    timeout: 5
+    message_wait_milliseconds: 250
+
+    sensors:
+      - name: Puffer Roh 1
+        unique_id: puffer_roh_1
+        slave: 1
+        address: 0              # Data1
+        input_type: holding
+        data_type: uint16
+        scan_interval: 30
+
+      - name: Puffer Roh 2
+        unique_id: puffer_roh_2
+        slave: 1
+        address: 1              # Data2
+        input_type: holding
+        data_type: uint16
+        scan_interval: 30
+
+      - name: Puffer Roh 3
+        unique_id: puffer_roh_3
+        slave: 1
+        address: 2              # Data3
+        input_type: holding
+        data_type: uint16
+        scan_interval: 30
+
+      - name: Puffer Roh 4
+        unique_id: puffer_roh_4
+        slave: 1
+        address: 3              # Data4
+        input_type: holding
+        data_type: uint16
+        scan_interval: 30
+
+template:
+  # ---------------- Pufferspeicher-Fühler in °C umrechnen ----------------
+  # Kanäle: 1 = Puffer WP Vorlauf, 2 = Puffer WP Rücklauf,
+  #         3 = Puffer Heizkreis Rücklauf, 4 = Puffer Heizkreis Vorlauf
+  - sensor:
+      - name: Puffer WP Vorlauf
+        unique_id: puffer_wp_vorlauf
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        availability: "{{ (states('sensor.puffer_roh_1') | int(65535)) != 65535 }}"
+        state: >
+          {% set r = states('sensor.puffer_roh_1') | int(0) %}
+          {{ ((-(r - 10000) if r > 10000 else r) / 10) | round(1) }}
+
+      - name: Puffer WP Rücklauf
+        unique_id: puffer_wp_rucklauf
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        availability: "{{ (states('sensor.puffer_roh_2') | int(65535)) != 65535 }}"
+        state: >
+          {% set r = states('sensor.puffer_roh_2') | int(0) %}
+          {{ ((-(r - 10000) if r > 10000 else r) / 10) | round(1) }}
+
+      - name: Puffer Heizkreis Rücklauf
+        unique_id: puffer_heizkreis_rucklauf
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        availability: "{{ (states('sensor.puffer_roh_3') | int(65535)) != 65535 }}"
+        state: >
+          {% set r = states('sensor.puffer_roh_3') | int(0) %}
+          {{ ((-(r - 10000) if r > 10000 else r) / 10) | round(1) }}
+
+      - name: Puffer Heizkreis Vorlauf
+        unique_id: puffer_heizkreis_vorlauf
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        availability: "{{ (states('sensor.puffer_roh_4') | int(65535)) != 65535 }}"
+        state: >
+          {% set r = states('sensor.puffer_roh_4') | int(0) %}
+          {{ ((-(r - 10000) if r > 10000 else r) / 10) | round(1) }}
+
+      # Spreizung der Wärmepumpe (Vorlauf minus Rücklauf)
+      - name: WP Spreizung
+        unique_id: wp_spreizung
+        unit_of_measurement: "K"
+        state_class: measurement
+        availability: >
+          {{ is_number(states('sensor.wp_vorlauf_temperatur')) and
+             is_number(states('sensor.wp_rucklauf_temperatur')) }}
+        state: >
+          {{ (states('sensor.wp_vorlauf_temperatur') | float
+              - states('sensor.wp_rucklauf_temperatur') | float) | round(1) }}
+
+      # Spreizung des Heizkreises (Puffer Heizkreis Vorlauf minus Rücklauf)
+      - name: Heizkreis Spreizung
+        unique_id: heizkreis_spreizung
+        unit_of_measurement: "K"
+        state_class: measurement
+        availability: >
+          {{ is_number(states('sensor.puffer_heizkreis_vorlauf')) and
+             is_number(states('sensor.puffer_heizkreis_rucklauf')) }}
+        state: >
+          {{ (states('sensor.puffer_heizkreis_vorlauf') | float
+              - states('sensor.puffer_heizkreis_rucklauf') | float) | round(1) }}
+
+  # ---------------- Binary Sensoren aus Flag-Bits ----------------
+  - binary_sensor:
+      # Status = Ausgangs-Bit ODER gemessener Istwert (Frequenz, Drehzahl > 0).
+      # Fehlen die Quelldaten, zeigt der Sensor "nicht verfügbar" statt "aus".
+      - name: WP Verdichter läuft
+        unique_id: wp_verdichter_laeuft
+        device_class: running
+        availability: "{{ is_number(states('sensor.wp_ausgange_1')) or is_number(states('sensor.wp_verdichter_frequenz')) }}"
+        state: >
+          {{ (states('sensor.wp_ausgange_1') | int(0)) | bitwise_and(1) > 0
+             or (states('sensor.wp_verdichter_frequenz') | float(0)) > 0 }}
+
+      - name: WP Lüfter läuft
+        unique_id: wp_luefter_laeuft
+        device_class: running
+        availability: "{{ is_number(states('sensor.wp_ausgange_1')) or is_number(states('sensor.wp_lufter_drehzahl')) }}"
+        state: >
+          {{ (states('sensor.wp_ausgange_1') | int(0)) | bitwise_and(32) > 0
+             or (states('sensor.wp_lufter_drehzahl') | float(0)) > 0 }}
+
+      - name: WP 4-Wege-Ventil
+        unique_id: wp_4wege_ventil
+        availability: "{{ is_number(states('sensor.wp_ausgange_1')) }}"
+        state: "{{ (states('sensor.wp_ausgange_1') | int(0)) | bitwise_and(64) > 0 }}"
+
+      - name: WP Umwälzpumpe läuft
+        unique_id: wp_umwaelzpumpe_laeuft
+        device_class: running
+        availability: "{{ is_number(states('sensor.wp_ausgange_3')) or is_number(states('sensor.wp_dc_pumpe_drehzahl')) }}"
+        state: >
+          {{ (states('sensor.wp_ausgange_3') | int(0)) | bitwise_and(1) > 0
+             or (states('sensor.wp_dc_pumpe_drehzahl') | float(0)) > 0 }}
+
+      - name: WP Abtauung aktiv
+        unique_id: wp_abtauung_aktiv
+        availability: "{{ is_number(states('sensor.wp_modus_freigaben')) }}"
+        state: "{{ (states('sensor.wp_modus_freigaben') | int(0)) | bitwise_and(128) > 0 }}"
+
+      - name: WP Warmwasser Heizstab
+        unique_id: wp_ww_heizstab
+        availability: "{{ is_number(states('sensor.wp_ausgange_2')) }}"
+        state: "{{ (states('sensor.wp_ausgange_2') | int(0)) | bitwise_and(128) > 0 }}"
+
+      - name: WP Störung
+        unique_id: wp_stoerung
+        device_class: problem
+        state: >
+          {% set regs = ['sensor.wp_fehler_1','sensor.wp_fehler_2','sensor.wp_fehler_3',
+                         'sensor.wp_fehler_4','sensor.wp_fehler_5','sensor.wp_fehler_6',
+                         'sensor.wp_fehler_7','sensor.wp_inverter_fehler_low',
+                         'sensor.wp_inverter_fehler_high'] %}
+          {{ regs | map('states') | map('int', 0) | select('gt', 0) | list | count > 0 }}
+
+  # ---------------- Schalter, Zahlen, Auswahl (schreiben) ----------------
+  # Power: Bit0 in Register 0x0000. Es wird das gesamte Register geschrieben,
+  # daher werden die übrigen Bits aus dem zuletzt gelesenen Wert übernommen.
+  - switch:
+      - name: WP Power
+        unique_id: wp_power
+        state: "{{ (states('sensor.wp_steuerflags_1') | int(0)) | bitwise_and(1) > 0 }}"
+        availability: "{{ states('sensor.wp_steuerflags_1') not in ['unknown','unavailable'] }}"
+        turn_on:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 0
+              value: "{{ (states('sensor.wp_steuerflags_1') | int(0)) | bitwise_or(1) }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_steuerflags_1
+        turn_off:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 0
+              value: "{{ (states('sensor.wp_steuerflags_1') | int(0)) | bitwise_and(65534) }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_steuerflags_1
+
+  - select:
+      - name: WP Betriebsmodus
+        unique_id: wp_betriebsmodus
+        options: >
+          {{ ['Warmwasser', 'Heizen', 'Kühlen', 'Warmwasser + Heizen', 'Warmwasser + Kühlen'] }}
+        state: >
+          {% set m = {0:'Warmwasser',1:'Heizen',2:'Kühlen',3:'Warmwasser + Heizen',4:'Warmwasser + Kühlen'} %}
+          {{ m.get(states('sensor.wp_betriebsmodus_register') | int(-1), none) }}
+        select_option:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 4
+              value: >
+                {{ {'Warmwasser':0,'Heizen':1,'Kühlen':2,
+                    'Warmwasser + Heizen':3,'Warmwasser + Kühlen':4}[option] }}
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_betriebsmodus_register
+
+  - number:
+      - name: WP Solltemperatur Heizen
+        unique_id: wp_soll_heizen_number
+        unit_of_measurement: "°C"
+        min: 15
+        max: 50
+        step: 1
+        state: "{{ states('sensor.wp_soll_heizen') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 145
+              value: "{{ value | int }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_soll_heizen
+
+      - name: WP Solltemperatur Kühlen
+        unique_id: wp_soll_kuehlen_number
+        unit_of_measurement: "°C"
+        min: 7
+        max: 30
+        step: 1
+        state: "{{ states('sensor.wp_soll_kuehlen') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 144
+              value: "{{ value | int }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_soll_kuehlen
+
+      - name: WP Solltemperatur Warmwasser
+        unique_id: wp_soll_warmwasser_number
+        unit_of_measurement: "°C"
+        min: 28
+        max: 60
+        step: 1
+        state: "{{ states('sensor.wp_soll_warmwasser') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 143
+              value: "{{ value | int }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_soll_warmwasser
+
+      - name: WP Wassertemperatur Kompensation
+        unique_id: wp_wassertemp_kompensation_number
+        unit_of_measurement: "°C"
+        min: -5
+        max: 15
+        step: 1
+        state: "{{ states('sensor.wp_wassertemperatur_kompensation') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 146
+              # negative Werte als 16-Bit-Zweierkomplement schreiben
+              value: "{{ (value | int) % 65536 }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_wassertemperatur_kompensation
+
+  # ---------------- Zusatz-Schalter (Bits in den Steuer-Registern) ----------------
+  # Silent und Powerful schließen sich gegenseitig aus: Einschalten des einen
+  # löscht das Bit des anderen.
+  - switch:
+      - name: WP Silent Modus
+        unique_id: wp_silent_modus
+        state: "{{ (states('sensor.wp_steuerflags_2') | int(0)) | bitwise_and(32) > 0 }}"
+        availability: "{{ states('sensor.wp_steuerflags_2') not in ['unknown','unavailable'] }}"
+        turn_on:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 1
+              value: >
+                {% set f = states('sensor.wp_steuerflags_2') | int(0) %}
+                {{ (f | bitwise_or(32)) | bitwise_and(65519) }}
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_steuerflags_2
+        turn_off:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 1
+              value: >
+                {% set f = states('sensor.wp_steuerflags_2') | int(0) %}
+                {{ f | bitwise_and(65503) }}
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_steuerflags_2
+
+      - name: WP Powerful Modus
+        unique_id: wp_powerful_modus
+        state: "{{ (states('sensor.wp_steuerflags_2') | int(0)) | bitwise_and(16) > 0 }}"
+        availability: "{{ states('sensor.wp_steuerflags_2') not in ['unknown','unavailable'] }}"
+        turn_on:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 1
+              value: >
+                {% set f = states('sensor.wp_steuerflags_2') | int(0) %}
+                {{ (f | bitwise_or(16)) | bitwise_and(65503) }}
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_steuerflags_2
+        turn_off:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 1
+              value: >
+                {% set f = states('sensor.wp_steuerflags_2') | int(0) %}
+                {{ f | bitwise_and(65519) }}
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_steuerflags_2
+
+      - name: WP P22 Heiz Sollwert Automatik
+        unique_id: wp_p22_heiz_sollwert_automatik
+        state: "{{ (states('sensor.wp_steuerflags_2') | int(0)) | bitwise_and(64) > 0 }}"
+        availability: "{{ states('sensor.wp_steuerflags_2') not in ['unknown','unavailable'] }}"
+        turn_on:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 1
+              value: >
+                {% set f = states('sensor.wp_steuerflags_2') | int(0) %}
+                {{ (f | bitwise_or(64)) }}
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_steuerflags_2
+        turn_off:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 1
+              value: >
+                {% set f = states('sensor.wp_steuerflags_2') | int(0) %}
+                {{ f | bitwise_and(65471) }}
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_steuerflags_2
+
+      - name: WP Urlaubsmodus
+        unique_id: wp_urlaubsmodus
+        state: "{{ (states('sensor.wp_steuerflags_3') | int(0)) | bitwise_and(2) > 0 }}"
+        availability: "{{ states('sensor.wp_steuerflags_3') not in ['unknown','unavailable'] }}"
+        turn_on:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 2
+              value: >
+                {% set f = states('sensor.wp_steuerflags_3') | int(0) %}
+                {{ (f | bitwise_or(2)) }}
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_steuerflags_3
+        turn_off:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 2
+              value: >
+                {% set f = states('sensor.wp_steuerflags_3') | int(0) %}
+                {{ f | bitwise_and(65533) }}
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_steuerflags_3
+
+  # ---------------- Einstellungen als Zahlenfelder ----------------
+  # Jeder Schreibzugriff geht in den Flash der Wärmepumpe: nur von Hand ändern,
+  # keine Automationen mit zyklischen Schreibbefehlen.
+  - number:
+      - name: WP P09 Abtaufrequenz
+        unique_id: wp_p09_abtaufrequenz_number
+        unit_of_measurement: "Hz"
+        min: 30
+        max: 120
+        step: 1
+        state: "{{ states('sensor.wp_p09_abtaufrequenz_ist') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 5
+              value: "{{ (value | int) % 65536 }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_p09_abtaufrequenz_ist
+
+      - name: WP P10 Abtauzyklus
+        unique_id: wp_p10_abtauzyklus_number
+        unit_of_measurement: "min"
+        min: 20
+        max: 90
+        step: 1
+        state: "{{ states('sensor.wp_p10_abtauzyklus_ist') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 6
+              value: "{{ (value | int) % 65536 }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_p10_abtauzyklus_ist
+
+      - name: WP P11 Abtau Start Spulentemp
+        unique_id: wp_p11_abtau_start_spulentemp_number
+        unit_of_measurement: "°C"
+        min: -15
+        max: -1
+        step: 1
+        state: "{{ states('sensor.wp_p11_abtau_start_spulentemp_ist') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 147
+              value: "{{ (value | int) % 65536 }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_p11_abtau_start_spulentemp_ist
+
+      - name: WP P12 Abtauzeit
+        unique_id: wp_p12_abtauzeit_number
+        unit_of_measurement: "min"
+        min: 5
+        max: 20
+        step: 1
+        state: "{{ states('sensor.wp_p12_abtauzeit_ist') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 7
+              value: "{{ (value | int) % 65536 }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_p12_abtauzeit_ist
+
+      - name: WP P13 Abtau Ende Spulentemp
+        unique_id: wp_p13_abtau_ende_spulentemp_number
+        unit_of_measurement: "°C"
+        min: 1
+        max: 40
+        step: 1
+        state: "{{ states('sensor.wp_p13_abtau_ende_spulentemp_ist') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 148
+              value: "{{ (value | int) % 65536 }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_p13_abtau_ende_spulentemp_ist
+
+      - name: WP P14 Abtau Differenz 1
+        unique_id: wp_p14_abtau_differenz_1_number
+        unit_of_measurement: "K"
+        min: 0
+        max: 15
+        step: 1
+        state: "{{ states('sensor.wp_p14_abtau_differenz_1_ist') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 149
+              value: "{{ (value | int) % 65536 }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_p14_abtau_differenz_1_ist
+
+      - name: WP P15 Abtau Differenz 2
+        unique_id: wp_p15_abtau_differenz_2_number
+        unit_of_measurement: "K"
+        min: 0
+        max: 15
+        step: 1
+        state: "{{ states('sensor.wp_p15_abtau_differenz_2_ist') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 150
+              value: "{{ (value | int) % 65536 }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_p15_abtau_differenz_2_ist
+
+      - name: WP P16 Abtau Umgebungstemp
+        unique_id: wp_p16_abtau_umgebungstemp_number
+        unit_of_measurement: "°C"
+        min: 0
+        max: 20
+        step: 1
+        state: "{{ states('sensor.wp_p16_abtau_umgebungstemp_ist') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 151
+              value: "{{ (value | int) % 65536 }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_p16_abtau_umgebungstemp_ist
+
+      - name: WP P01 Neustart Diff Heizen Kuehlen
+        unique_id: wp_p01_neustart_diff_heizen_kuehlen_number
+        unit_of_measurement: "K"
+        min: 2
+        max: 18
+        step: 1
+        state: "{{ states('sensor.wp_p01_neustart_diff_heizen_kuehlen_ist') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 141
+              value: "{{ (value | int) % 65536 }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_p01_neustart_diff_heizen_kuehlen_ist
+
+      - name: WP P02 Neustart Diff Warmwasser
+        unique_id: wp_p02_neustart_diff_warmwasser_number
+        unit_of_measurement: "K"
+        min: 2
+        max: 18
+        step: 1
+        state: "{{ states('sensor.wp_p02_neustart_diff_warmwasser_ist') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 142
+              value: "{{ (value | int) % 65536 }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_p02_neustart_diff_warmwasser_ist
+
+      - name: WP P17 Desinfektion Zyklus
+        unique_id: wp_p17_desinfektion_zyklus_number
+        unit_of_measurement: "d"
+        min: 0
+        max: 30
+        step: 1
+        state: "{{ states('sensor.wp_p17_desinfektion_zyklus_ist') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 230
+              value: "{{ (value | int) % 65536 }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_p17_desinfektion_zyklus_ist
+
+      - name: WP P18 Desinfektion Startzeit
+        unique_id: wp_p18_desinfektion_startzeit_number
+        unit_of_measurement: "h"
+        min: 0
+        max: 23
+        step: 1
+        state: "{{ states('sensor.wp_p18_desinfektion_startzeit_ist') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 231
+              value: "{{ (value | int) % 65536 }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_p18_desinfektion_startzeit_ist
+
+      - name: WP P19 Desinfektion Haltezeit
+        unique_id: wp_p19_desinfektion_haltezeit_number
+        unit_of_measurement: "min"
+        min: 0
+        max: 90
+        step: 1
+        state: "{{ states('sensor.wp_p19_desinfektion_haltezeit_ist') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 232
+              value: "{{ (value | int) % 65536 }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_p19_desinfektion_haltezeit_ist
+
+      - name: WP P20 Desinfektion Solltemp
+        unique_id: wp_p20_desinfektion_solltemp_number
+        unit_of_measurement: "°C"
+        min: 0
+        max: 90
+        step: 1
+        state: "{{ states('sensor.wp_p20_desinfektion_solltemp_ist') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 233
+              value: "{{ (value | int) % 65536 }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_p20_desinfektion_solltemp_ist
+
+      - name: WP P21 Desinfektion WP Solltemp
+        unique_id: wp_p21_desinfektion_wp_solltemp_number
+        unit_of_measurement: "°C"
+        min: 40
+        max: 60
+        step: 1
+        state: "{{ states('sensor.wp_p21_desinfektion_wp_solltemp_ist') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 234
+              value: "{{ (value | int) % 65536 }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_p21_desinfektion_wp_solltemp_ist
+
+      - name: WP P23 Heizkurve Aussentemp
+        unique_id: wp_p23_heizkurve_aussentemp_number
+        unit_of_measurement: "°C"
+        min: 0
+        max: 40
+        step: 1
+        state: "{{ states('sensor.wp_p23_heizkurve_aussentemp_ist') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 235
+              value: "{{ (value | int) % 65536 }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_p23_heizkurve_aussentemp_ist
+
+      - name: WP P24 Heizkurve Faktor
+        unique_id: wp_p24_heizkurve_faktor_number
+        min: 1
+        max: 30
+        step: 1
+        state: "{{ states('sensor.wp_p24_heizkurve_faktor_ist') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 236
+              value: "{{ (value | int) % 65536 }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_p24_heizkurve_faktor_ist
+
+      - name: WP P26 Heizstab Aussentemp
+        unique_id: wp_p26_heizstab_aussentemp_number
+        unit_of_measurement: "°C"
+        min: -20
+        max: 20
+        step: 1
+        state: "{{ states('sensor.wp_p26_heizstab_aussentemp_ist') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 237
+              value: "{{ (value | int) % 65536 }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_p26_heizstab_aussentemp_ist
+
+      - name: WP P27 Heizstab Verzoegerung
+        unique_id: wp_p27_heizstab_verzoegerung_number
+        min: 0
+        max: 60
+        step: 1
+        state: "{{ states('sensor.wp_p27_heizstab_verzoegerung_ist') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 254
+              value: "{{ (value | int) % 65536 }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_p27_heizstab_verzoegerung_ist
+
+      - name: WP Urlaub Solltemperatur
+        unique_id: wp_urlaub_solltemperatur_number
+        unit_of_measurement: "°C"
+        min: 5
+        max: 30
+        step: 1
+        state: "{{ states('sensor.wp_urlaub_solltemperatur_ist') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 242
+              value: "{{ (value | int) % 65536 }}"
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.wp_urlaub_solltemperatur_ist

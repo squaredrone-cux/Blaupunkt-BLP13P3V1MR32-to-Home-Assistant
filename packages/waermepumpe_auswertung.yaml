@@ -1,0 +1,517 @@
+# ============================================================================
+# Wärmepumpe PW58322 – Helfer, Auswertung und Bedienelemente
+# ============================================================================
+# Benötigt das Paket waermepumpe_modbus.yaml.
+#
+# VON DIR ANZUPASSEN (suche nach "ANPASSEN"):
+#   - Stromzähler der Wärmepumpe (3 Phasen-Leistungen + Gesamtenergie)
+#   - Steckdose/Leistungsmessung der Heizkreispumpe (optional)
+#   - Raumsensoren für die automatische Heizkurve (optional)
+#   - Heizstab-Leistung und Puffer-Stillstandsverlust laut Typenschild
+#
+# Nach der ersten Installation einmal das Skript
+# "Wärmepumpe Standardwerte setzen" ausführen: YAML-Helfer starten sonst
+# mit ihrem Minimalwert.
+# ============================================================================
+
+input_boolean:
+  wp_zeitplan_aktiv:
+    name: WP Zeitplan aktiv
+    icon: mdi:calendar-check
+  heizkreispumpe_automatik:
+    name: Heizkreispumpe Automatik
+    icon: mdi:pump
+  wp_modus_automatik:
+    name: WP Modus Automatik
+    icon: mdi:auto-mode
+  wp_nachtabsenkung:
+    name: WP Nachtabsenkung
+    icon: mdi:weather-night
+  heizkurve_automatisch_anpassen:
+    name: Heizkurve automatisch anpassen
+    icon: mdi:chart-bell-curve-cumulative
+
+input_number:
+  wp_smart_unter:
+    name: WP Smart unter
+    min: -10
+    max: 10
+    step: 0.5
+    mode: box
+    unit_of_measurement: "°C"
+    icon: mdi:snowflake-thermometer
+  wp_eco_ueber:
+    name: WP ECO ueber
+    min: -5
+    max: 15
+    step: 0.5
+    mode: box
+    unit_of_measurement: "°C"
+    icon: mdi:leaf
+  wunsch_raumtemperatur:
+    name: Wunsch Raumtemperatur
+    min: 18
+    max: 23
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:home-thermometer-outline
+  wp_heizgradtage_vortag:
+    name: WP Heizgradtage Vortag
+    min: 0
+    max: 45
+    step: 0.1
+    mode: box
+    unit_of_measurement: "Kd"
+    icon: mdi:thermometer-minus
+  wp_kwh_pro_heizgradtag_vortag:
+    name: WP kWh pro Heizgradtag Vortag
+    min: 0
+    max: 10
+    step: 0.01
+    mode: box
+    unit_of_measurement: "kWh/Kd"
+    icon: mdi:chart-bell-curve
+  korrektur_puffer_wp_rucklauf:
+    name: Korrektur Puffer WP Rücklauf
+    min: -5
+    max: 5
+    step: 0.1
+    mode: box
+    unit_of_measurement: "K"
+    icon: mdi:tune-vertical
+
+input_select:
+  wp_heizkurve_stufe:
+    name: WP Heizkurve Stufe
+    icon: mdi:thermometer-lines
+    options:
+      - "Sehr sparsam (−4 °C)"
+      - "Sparsam (−2 °C)"
+      - "Normal"
+      - "Wärmer (+2 °C)"
+      - "Viel wärmer (+4 °C)"
+  wp_nachtabsenkung_stufe:
+    name: WP Nachtabsenkung Stufe
+    icon: mdi:thermometer-chevron-down
+    options:
+      - "Sparsam (−2 °C)"
+      - "Sehr sparsam (−4 °C)"
+
+input_text:
+  wp_heizkurve_tagesstufe_gemerkt:
+    name: WP Heizkurve Tagesstufe gemerkt
+    max: 40
+    icon: mdi:content-save
+
+input_datetime:
+  wp_nachtabsenkung_beginn:
+    name: WP Nachtabsenkung Beginn
+    has_date: false
+    has_time: true
+    icon: mdi:clock-start
+  wp_nachtabsenkung_ende:
+    name: WP Nachtabsenkung Ende
+    has_date: false
+    has_time: true
+    icon: mdi:clock-end
+
+schedule:
+  wp_heizzeiten:
+    name: WP Heizzeiten
+    icon: mdi:calendar-clock
+    monday: &heizzeit
+      - from: "05:00:00"
+        to: "23:30:00"
+    tuesday: *heizzeit
+    wednesday: *heizzeit
+    thursday: *heizzeit
+    friday: *heizzeit
+    saturday: *heizzeit
+    sunday: *heizzeit
+
+script:
+  waermepumpe_standardwerte_setzen:
+    alias: Wärmepumpe Standardwerte setzen
+    description: Einmal nach der Installation ausführen. Setzt sinnvolle Startwerte für die Helfer (schreibt nichts in die Wärmepumpe).
+    icon: mdi:restore
+    sequence:
+      - action: input_number.set_value
+        target: { entity_id: input_number.wp_smart_unter }
+        data: { value: 3 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.wp_eco_ueber }
+        data: { value: 5 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.wunsch_raumtemperatur }
+        data: { value: 21 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.korrektur_puffer_wp_rucklauf }
+        data: { value: 0 }
+      - action: input_datetime.set_datetime
+        target: { entity_id: input_datetime.wp_nachtabsenkung_beginn }
+        data: { time: "22:30:00" }
+      - action: input_datetime.set_datetime
+        target: { entity_id: input_datetime.wp_nachtabsenkung_ende }
+        data: { time: "05:00:00" }
+      - action: input_select.select_option
+        target: { entity_id: input_select.wp_heizkurve_stufe }
+        data: { option: "Normal" }
+
+template:
+  - binary_sensor:
+      # Entprellt: hält bei kurzen Modbus-Aussetzern den letzten Zustand
+      - name: WP Verdichter läuft stabil
+        unique_id: wp_pkg_verdichter_laeuft_stabil
+        device_class: running
+        state: >
+          {% set s = states('binary_sensor.wp_verdichter_lauft') %}
+          {{ (s == 'on') if s in ['on', 'off'] else (this.state == 'on') }}
+      - name: WP Abtauung stabil
+        unique_id: wp_pkg_abtauung_stabil
+        device_class: running
+        state: >
+          {% set s = states('binary_sensor.wp_abtauung_aktiv') %}
+          {{ (s == 'on') if s in ['on', 'off'] else (this.state == 'on') }}
+      # Heizstab im Puffer: Ausgänge 2, Bit 5
+      - name: WP Heizstab Puffer
+        unique_id: wp_pkg_heizstab_puffer
+        device_class: running
+        state: "{{ (states('sensor.wp_ausgange_2') | int(0)) | bitwise_and(32) > 0 }}"
+
+  - sensor:
+      # Außenfühler springt beim Abtauen: bis 20 min nach der Abtauung den alten Wert halten
+      - name: WP Außentemperatur gefiltert
+        unique_id: wp_pkg_aussentemperatur_gefiltert
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: "°C"
+        state: >
+          {% set roh = states('sensor.wp_aussentemperatur') | float(none) %}
+          {% set abt = states.binary_sensor.wp_abtauung_aktiv %}
+          {% set sperre = abt is not none and (abt.state == 'on' or (now() - abt.last_changed).total_seconds() < 1200) %}
+          {% set alt = this.state | float(none) %}
+          {% if sperre and alt is not none %}{{ alt }}{% elif roh is not none %}{{ roh }}{% elif alt is not none %}{{ alt }}{% else %}{{ none }}{% endif %}
+      # Was die WP nach P22/P23/P24 als Vorlauf anstrebt
+      - name: WP Heizkurve Soll
+        unique_id: wp_pkg_heizkurve_soll
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: "°C"
+        availability: >
+          {{ states('sensor.wp_p23_heizkurve_aussentemp_ist') | is_number
+             and states('sensor.wp_p24_heizkurve_faktor_ist') | is_number
+             and states('sensor.wp_aussentemperatur_gefiltert') | is_number }}
+        state: >
+          {% set p23 = states('sensor.wp_p23_heizkurve_aussentemp_ist') | float %}
+          {% set p24 = states('sensor.wp_p24_heizkurve_faktor_ist') | float %}
+          {% set t = states('sensor.wp_aussentemperatur_gefiltert') | float %}
+          {{ (20 + (p24 / 10) * (p23 - t)) | round(1) }}
+      - name: WP mittlere Laufzeit heute
+        unique_id: wp_pkg_mittlere_laufzeit_heute
+        state_class: measurement
+        unit_of_measurement: "min"
+        availability: "{{ states('sensor.wp_verdichter_starts_heute') | float(0) > 0 }}"
+        state: >
+          {{ (states('sensor.wp_verdichter_laufzeit_heute') | float(0) * 60
+              / states('sensor.wp_verdichter_starts_heute') | float(1)) | round(0) }}
+      - name: WP Verdichter Laufzeit Tag Statistik
+        unique_id: wp_pkg_verdichter_laufzeit_tag_statistik
+        state_class: measurement
+        unit_of_measurement: "h"
+        availability: "{{ states('sensor.wp_verdichter_laufzeit_heute') | is_number }}"
+        state: "{{ states('sensor.wp_verdichter_laufzeit_heute') | float | round(2) }}"
+      - name: WP Abtauzeit Tag Statistik
+        unique_id: wp_pkg_abtauzeit_tag_statistik
+        state_class: measurement
+        unit_of_measurement: "min"
+        availability: "{{ states('sensor.wp_abtauzeit_heute') | is_number }}"
+        state: "{{ (states('sensor.wp_abtauzeit_heute') | float * 60) | round(0) }}"
+      - name: WP Heizstab Laufzeit Tag Statistik
+        unique_id: wp_pkg_heizstab_laufzeit_tag_statistik
+        state_class: measurement
+        unit_of_measurement: "min"
+        availability: "{{ states('sensor.wp_heizstab_laufzeit_heute') | is_number }}"
+        state: "{{ (states('sensor.wp_heizstab_laufzeit_heute') | float * 60) | round(0) }}"
+      # ANPASSEN: Leistung des Heizstabs im Puffer (hier 3 kW)
+      - name: WP Heizstab Leistung geschaetzt
+        unique_id: wp_pkg_heizstab_leistung_geschaetzt
+        device_class: power
+        state_class: measurement
+        unit_of_measurement: "W"
+        state: "{{ 3000 if is_state('binary_sensor.wp_heizstab_puffer', 'on') else 0 }}"
+      - name: Heizung Strom heute gesamt
+        unique_id: wp_pkg_heizung_strom_heute_gesamt
+        device_class: energy
+        state_class: total
+        unit_of_measurement: "kWh"
+        state: >
+          {{ (states('sensor.wp_energie_tag') | float(0)
+              + states('sensor.wp_heizstab_energie_tag') | float(0)) | round(2) }}
+      # ANPASSEN: Stillstandsverlust laut Typenschild (hier 53 W bei 45 K über Raum, Raum 18 °C)
+      - name: Puffer Stillstandsverlust
+        unique_id: wp_pkg_puffer_stillstandsverlust
+        device_class: power
+        state_class: measurement
+        unit_of_measurement: "W"
+        availability: "{{ states('sensor.wp_warmwasser_temperatur') | is_number }}"
+        state: "{{ [0, 53 * (states('sensor.wp_warmwasser_temperatur') | float - 18) / 45] | max | round(0) }}"
+      # Korrektur für einen Puffer-Fühler mit festem Versatz (Helfer, Standard 0 K)
+      - name: Puffer WP Rücklauf korrigiert
+        unique_id: wp_pkg_puffer_wp_rucklauf_korrigiert
+        device_class: temperature
+        state_class: measurement
+        unit_of_measurement: "°C"
+        availability: "{{ states('sensor.puffer_wp_rucklauf') | is_number }}"
+        state: >
+          {{ (states('sensor.puffer_wp_rucklauf') | float
+              + states('input_number.korrektur_puffer_wp_rucklauf') | float(0)) | round(1) }}
+      # Temperaturverlust auf der Leitung WP (außen) -> Puffer (innen), nur bei laufendem Verdichter
+      - name: WP Leitung Verlust Vorlauf
+        unique_id: wp_pkg_leitung_verlust_vorlauf
+        state_class: measurement
+        unit_of_measurement: "K"
+        availability: >
+          {{ is_state('binary_sensor.wp_verdichter_lauft_stabil', 'on')
+             and states('sensor.wp_vorlauf_temperatur') | is_number
+             and states('sensor.puffer_wp_vorlauf') | is_number }}
+        state: "{{ (states('sensor.wp_vorlauf_temperatur') | float - states('sensor.puffer_wp_vorlauf') | float) | round(1) }}"
+      - name: WP Leitung Verlust Rücklauf
+        unique_id: wp_pkg_leitung_verlust_rucklauf
+        state_class: measurement
+        unit_of_measurement: "K"
+        availability: >
+          {{ is_state('binary_sensor.wp_verdichter_lauft_stabil', 'on')
+             and states('sensor.puffer_wp_rucklauf_korrigiert') | is_number
+             and states('sensor.wp_rucklauf_temperatur') | is_number }}
+        state: "{{ (states('sensor.puffer_wp_rucklauf_korrigiert') | float - states('sensor.wp_rucklauf_temperatur') | float) | round(1) }}"
+      - name: WP kWh pro Heizgradtag
+        unique_id: wp_pkg_kwh_pro_heizgradtag
+        state_class: measurement
+        unit_of_measurement: "kWh/Kd"
+        state: "{{ states('input_number.wp_kwh_pro_heizgradtag_vortag') | float(none) }}"
+      # Einfache Tagesschätzung aus dem 24-h-Mittel außen (Modell siehe custom_templates/wp_prognose.jinja)
+      - name: WP Erwarteter Tagesverbrauch
+        unique_id: wp_pkg_erwarteter_tagesverbrauch
+        state_class: measurement
+        unit_of_measurement: "kWh"
+        availability: "{{ states('sensor.wp_aussentemperatur_mittel_24h') | is_number }}"
+        state: >
+          {% from 'wp_prognose.jinja' import wp_kwh_tag %}
+          {{ wp_kwh_tag(states('sensor.wp_aussentemperatur_mittel_24h'), states('sensor.wp_kwh_pro_heizgradtag_mittel_14_tage')) }}
+      - name: WP Prognose 7 Tage
+        unique_id: wp_pkg_prognose_7_tage
+        state_class: measurement
+        unit_of_measurement: "kWh"
+        availability: "{{ state_attr('sensor.wetterprognose_14_tage', 'daily') is not none }}"
+        state: >
+          {% from 'wp_prognose.jinja' import wp_kwh_summe %}
+          {% set d = state_attr('sensor.wetterprognose_14_tage', 'daily') %}
+          {{ wp_kwh_summe(d.temperature_2m_mean, states('sensor.wp_kwh_pro_heizgradtag_mittel_14_tage'), 7) }}
+      - name: WP Prognose 14 Tage
+        unique_id: wp_pkg_prognose_14_tage
+        state_class: measurement
+        unit_of_measurement: "kWh"
+        availability: "{{ state_attr('sensor.wetterprognose_14_tage', 'daily') is not none }}"
+        state: >
+          {% from 'wp_prognose.jinja' import wp_kwh_summe %}
+          {% set d = state_attr('sensor.wetterprognose_14_tage', 'daily') %}
+          {{ wp_kwh_summe(d.temperature_2m_mean, states('sensor.wp_kwh_pro_heizgradtag_mittel_14_tage'), 14) }}
+
+  # ECO (Silent) / Smart / Powerful als eine Auswahl
+  - select:
+      - name: WP Modus
+        unique_id: wp_pkg_modus
+        options: "{{ ['ECO', 'Smart', 'Powerful'] }}"
+        state: >
+          {% if is_state('switch.wp_powerful_modus', 'on') %}Powerful
+          {% elif is_state('switch.wp_silent_modus', 'on') %}ECO{% else %}Smart{% endif %}
+        select_option:
+          - choose:
+              - conditions: "{{ option == 'ECO' }}"
+                sequence:
+                  - action: switch.turn_off
+                    target: { entity_id: switch.wp_powerful_modus }
+                  - action: switch.turn_on
+                    target: { entity_id: switch.wp_silent_modus }
+              - conditions: "{{ option == 'Smart' }}"
+                sequence:
+                  - action: switch.turn_off
+                    target: { entity_id: [switch.wp_silent_modus, switch.wp_powerful_modus] }
+              - conditions: "{{ option == 'Powerful' }}"
+                sequence:
+                  - action: switch.turn_off
+                    target: { entity_id: switch.wp_silent_modus }
+                  - action: switch.turn_on
+                    target: { entity_id: switch.wp_powerful_modus }
+      # DC-Umwälzpumpe der WP: F4 (0x0105) 1 = Automatik, 2 = Manuell
+      - name: WP DC Pumpe Modus
+        unique_id: wp_pkg_dc_pumpe_modus
+        options: "{{ ['Automatik', 'Manuell'] }}"
+        state: "{{ {'1': 'Automatik', '2': 'Manuell'}.get(states('sensor.wp_f4_dc_pumpe_modus_ist'), 'unbekannt') }}"
+        select_option:
+          - action: modbus.write_register
+            data:
+              hub: waermepumpe
+              slave: 1
+              address: 261
+              value: "{{ 2 if option == 'Manuell' else 1 }}"
+          - action: homeassistant.update_entity
+            target: { entity_id: sensor.wp_f4_dc_pumpe_modus_ist }
+
+  - number:
+      # F6 (0x0107): Drehzahl im Modus Manuell
+      - name: WP DC Pumpe Handdrehzahl
+        unique_id: wp_pkg_dc_pumpe_handdrehzahl
+        min: 40
+        max: 100
+        step: 1
+        unit_of_measurement: "%"
+        state: "{{ states('sensor.wp_f6_dc_pumpe_handdrehzahl_ist') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data: { hub: waermepumpe, slave: 1, address: 263, value: "{{ value | int }}" }
+          - action: homeassistant.update_entity
+            target: { entity_id: sensor.wp_f6_dc_pumpe_handdrehzahl_ist }
+      # F10 (0x010B): Soll-Spreizung im Modus Automatik
+      - name: WP DC Pumpe Ziel-Spreizung
+        unique_id: wp_pkg_dc_pumpe_ziel_spreizung
+        min: 3
+        max: 10
+        step: 1
+        unit_of_measurement: "K"
+        state: "{{ states('sensor.wp_f10_dc_pumpe_soll_spreizung_ist') | float(none) }}"
+        set_value:
+          - action: modbus.write_register
+            data: { hub: waermepumpe, slave: 1, address: 267, value: "{{ value | int }}" }
+          - action: homeassistant.update_entity
+            target: { entity_id: sensor.wp_f10_dc_pumpe_soll_spreizung_ist }
+
+sensor:
+  # ANPASSEN: die drei Phasen-Leistungen deines WP-Stromzählers (W)
+  - platform: min_max
+    name: WP Wirkleistung
+    type: sum
+    round_digits: 3
+    entity_ids:
+      - sensor.wp_energiemeter_leistung_a
+      - sensor.wp_energiemeter_leistung_b
+      - sensor.wp_energiemeter_leistung_c
+
+  # ANPASSEN (optional): Raumsensoren, deren Mittel die Heizkurve führen soll
+  - platform: min_max
+    name: Raumtemperatur Referenz
+    type: mean
+    round_digits: 1
+    entity_ids:
+      - sensor.raumsensor_wohnzimmer_temperature
+      - sensor.raumsensor_kuche_temperature
+      - sensor.raumsensor_schlafzimmer_temperature
+
+  - platform: statistics
+    name: Raumtemperatur Referenz Mittel 12h
+    entity_id: sensor.raumtemperatur_referenz
+    state_characteristic: mean
+    max_age: { hours: 12 }
+    sampling_size: 5000
+    precision: 1
+    keep_last_sample: true
+
+  - platform: statistics
+    name: WP Außentemperatur Mittel 24h
+    entity_id: sensor.wp_aussentemperatur_gefiltert
+    state_characteristic: mean
+    max_age: { hours: 24 }
+    sampling_size: 5000
+    precision: 1
+    keep_last_sample: true
+
+  - platform: statistics
+    name: WP kWh pro Heizgradtag Mittel 14 Tage
+    entity_id: sensor.wp_kwh_pro_heizgradtag
+    state_characteristic: mean
+    max_age: { days: 14 }
+    sampling_size: 100
+    precision: 2
+    keep_last_sample: true
+
+  - platform: history_stats
+    name: WP Verdichter Starts heute
+    entity_id: binary_sensor.wp_verdichter_lauft_stabil
+    state: "on"
+    type: count
+    start: "{{ today_at() }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: WP Verdichter Laufzeit heute
+    entity_id: binary_sensor.wp_verdichter_lauft_stabil
+    state: "on"
+    type: time
+    start: "{{ today_at() }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: WP Abtauungen heute
+    entity_id: binary_sensor.wp_abtauung_stabil
+    state: "on"
+    type: count
+    start: "{{ today_at() }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: WP Abtauzeit heute
+    entity_id: binary_sensor.wp_abtauung_stabil
+    state: "on"
+    type: time
+    start: "{{ today_at() }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: WP Heizstab Laufzeit heute
+    entity_id: binary_sensor.wp_heizstab_puffer
+    state: "on"
+    type: time
+    start: "{{ today_at() }}"
+    end: "{{ now() }}"
+
+  - platform: integration
+    name: WP Heizstab Energie geschaetzt
+    source: sensor.wp_heizstab_leistung_geschaetzt
+    unit_prefix: k
+    round: 3
+    method: left
+    max_sub_interval: { minutes: 5 }
+  - platform: integration
+    name: Puffer Stillstandsverlust Energie
+    source: sensor.puffer_stillstandsverlust
+    unit_prefix: k
+    round: 3
+    method: left
+    max_sub_interval: { minutes: 5 }
+
+binary_sensor:
+  # ANPASSEN (optional): Leistung der Heizkreispumpe (z. B. Messsteckdose), läuft ab 3 W
+  - platform: threshold
+    name: Heizkreispumpe läuft
+    entity_id: sensor.umwalzpumpe_heizkreis_leistung
+    upper: 3
+    hysteresis: 1
+
+utility_meter:
+  # ANPASSEN: Gesamtenergie (kWh) deines WP-Stromzählers
+  wp_energie_tag:
+    name: WP Energie Tag
+    source: sensor.wp_energiemeter_energie
+    cycle: daily
+  wp_energie_monat:
+    name: WP Energie Monat
+    source: sensor.wp_energiemeter_energie
+    cycle: monthly
+  wp_heizstab_energie_tag:
+    name: WP Heizstab Energie Tag
+    source: sensor.wp_heizstab_energie_geschaetzt
+    cycle: daily
+  wp_heizstab_energie_monat:
+    name: WP Heizstab Energie Monat
+    source: sensor.wp_heizstab_energie_geschaetzt
+    cycle: monthly
+  puffer_verlust_heute:
+    name: Puffer Verlust heute
+    source: sensor.puffer_stillstandsverlust_energie
+    cycle: daily
