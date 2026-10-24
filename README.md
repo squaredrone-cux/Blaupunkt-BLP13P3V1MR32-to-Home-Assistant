@@ -83,6 +83,7 @@ Gateway-Einstellungen: 9600 Baud, 8N1, TCP-Server Port 502, Protokoll „Modbus 
    - `/local/puffer-speicher-card.js`
    - `/local/energiebilanz-card.js`
    - `/local/prognose-card.js`
+   - `/local/wp-temperatur-card.js`
 8. Aus **HACS** die Karte `ring-tile` installieren. Das Dashboard nutzt sie.
 9. **Dashboard** anlegen: neues Dashboard › ⋮ › Raw-Konfigurationseditor › Inhalt von `dashboards/waermepumpe.yaml` einfügen.
 10. Für jedes Heizkörperthermostat eine Automation aus dem Blueprint anlegen (optional).

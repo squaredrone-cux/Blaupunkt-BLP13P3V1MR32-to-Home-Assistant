@@ -1,5 +1,5 @@
 # Dashboard „Wärmepumpe“ – im Dashboard: ⋮ > Bearbeiten > ⋮ > Raw-Konfigurationseditor, Inhalt ersetzen.
-# Benötigt die Ressourcen /local/puffer-speicher-card.js, /local/energiebilanz-card.js und /local/prognose-card.js (JavaScript-Modul)
+# Benötigt die Ressourcen /local/puffer-speicher-card.js, /local/energiebilanz-card.js, /local/prognose-card.js und /local/wp-temperatur-card.js (JavaScript-Modul)
 # und aus HACS die Karte ring-tile (custom:ring-tile), siehe README.
 title: Wärmepumpe NEU
 views:
@@ -1996,6 +1996,20 @@ views:
   max_columns: 2
   theme: Liquid Glass
   sections:
+  - type: grid
+    column_span: 2
+    cards:
+    - type: heading
+      heading: Strom und Außentemperatur
+      icon: mdi:thermometer-lines
+    - type: custom:wp-temperatur-card
+      energie: sensor.wp_energiemeter_energie
+      temperatur:
+      - sensor.wp_aussentemperatur
+      ab: '2026-10-13'
+      tage: 120
+      grid_options:
+        columns: full
   - type: grid
     cards:
     - type: heading
