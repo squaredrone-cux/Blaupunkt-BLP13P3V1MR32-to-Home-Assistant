@@ -56,25 +56,27 @@ Silent und Powerful schließen sich aus: Wer eines setzt, löscht das andere.
 
 ## Parameter P01–P27
 
-| Parameter | Adresse | dez. | Bereich |
-| --- | --- | --- | --- |
-| P01 Neustart-Differenz Heizen/Kühlen | 0x008D | 141 | 2–18 K |
-| P02 Neustart-Differenz Warmwasser | 0x008E | 142 | 2–18 K |
-| P09 Abtaufrequenz | 0x0005 | 5 | 30–120 Hz |
-| P10 Abtauzyklus | 0x0006 | 6 | 20–90 min |
-| P11 Abtau-Start Spulentemperatur | 0x0093 | 147 | −15 bis −1 °C |
-| P12 Abtauzeit | 0x0007 | 7 | 5–20 min |
-| P13 Abtau-Ende Spulentemperatur | 0x0094 | 148 | 1–40 °C |
-| P14 / P15 Abtau-Differenz 1 / 2 | 0x0095 / 0x0096 | 149 / 150 | 0–15 K |
-| P16 Abtau-Umgebungstemperatur | 0x0097 | 151 | 0–20 °C |
-| P17 Desinfektion Zyklus | 0x00E6 | 230 | 0–30 Tage (0 = aus) |
-| P18 Desinfektion Startzeit | 0x00E7 | 231 | 0–23 h |
-| P19 Desinfektion Haltezeit | 0x00E8 | 232 | 0–90 min |
-| P20 / P21 Desinfektion Soll / WP-Soll | 0x00E9 / 0x00EA | 233 / 234 | 0–90 / 40–60 °C |
-| P23 Heizkurve Außentemperatur | 0x00EB | 235 | 0–40 °C |
-| P24 Heizkurve Faktor | 0x00EC | 236 | 1–30 (1 = 0,1) |
-| P26 Heizstab ab Außentemperatur | 0x00ED | 237 | −20 bis 20 °C, `int16` |
-| P27 Heizstab-Verzögerung | 0x00FE | 254 | 0–60 |
+| Parameter | Adresse | dez. | Bereich | Werkswert |
+| --- | --- | --- | --- | --- |
+| P01 Neustart-Differenz Heizen/Kühlen | 0x008D | 141 | 2–18 K | 2 K |
+| P02 Neustart-Differenz Warmwasser | 0x008E | 142 | 2–18 K | 5 K |
+| P09 Abtaufrequenz | 0x0005 | 5 | 30–120 Hz | 60 Hz |
+| P10 Abtauzyklus (Mindestabstand) | 0x0006 | 6 | 20–90 min | 45 min |
+| P11 Abtau-Start Spulentemperatur | 0x0093 | 147 | −15 bis −1 °C | −3 °C |
+| P12 Abtauzeit | 0x0007 | 7 | 5–20 min | 10 min |
+| P13 Abtau-Ende Spulentemperatur | 0x0094 | 148 | 1–40 °C | 20 °C |
+| P14 / P15 Abtau-Differenz 1 / 2 | 0x0095 / 0x0096 | 149 / 150 | 0–15 K | 5 / 5 K |
+| P16 Abtau-Umgebungstemperatur | 0x0097 | 151 | 0–20 °C | 17 °C |
+| P17 Desinfektion Zyklus | 0x00E6 | 230 | 0–30 Tage (0 = aus) | 7 |
+| P18 Desinfektion Startzeit | 0x00E7 | 231 | 0–23 h | 23 |
+| P19 Desinfektion Haltezeit | 0x00E8 | 232 | 0–90 min | 30 min |
+| P20 / P21 Desinfektion Soll / WP-Soll | 0x00E9 / 0x00EA | 233 / 234 | 0–90 / 40–60 °C | 70 / 53 °C |
+| P23 Heizkurve Außentemperatur | 0x00EB | 235 | 0–40 °C | 20 |
+| P24 Heizkurve Faktor | 0x00EC | 236 | 1–30 (1 = 0,1) | 1 |
+| P26 Heizstab ab Außentemperatur | 0x00ED | 237 | −20 bis 20 °C, `int16` | 0 °C |
+| P27 Heizstab-Verzögerung | 0x00FE | 254 | 0–60 min | 30 min |
+
+Werkswerte laut deutscher Bedienungsanleitung (Liste der Systemparameter). Die Anleitung rät davon ab, sie zu ändern. Für P08 nennt sie keinen Wert; ab Werk stand er beim Autor auf 7 (siehe README). Beim Autor waren P09 (90 Hz) und P10 (84 min) verstellt; zurück auf Werkswert sind sie für feuchtes Küstenklima die sicherere Wahl.
 
 Mit P22 an rechnet die WP selbst: **Soll-Vorlauf = 20 + P24/10 × (P23 − Außen)**. Beispiel: P23 = 25 und P24 = 10 ergeben 45 °C bei 0 °C außen und 55 °C bei −10 °C.
 
