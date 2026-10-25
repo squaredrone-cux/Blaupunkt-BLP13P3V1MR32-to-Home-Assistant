@@ -9,6 +9,9 @@
 //   ab: "2026-10-13"      erster Tag, der zählt (z. B. nach dem Aufheizen)
 //   tage: 90              wie weit zurück
 //   min_kwh: 1            Tage mit weniger Verbrauch werden ignoriert
+//   wind: sensor.wind_aussen          optional, Tagesmittel Wind (km/h)
+//   feuchte: sensor.luftfeuchte_aussen optional, Tagesmittel Luftfeuchte (%)
+//   wind_grenze: 30       ab diesem Tagesmittel gilt ein Tag als windig (oranger Ring)
 //   title: optional
 class WpTemperaturCard extends HTMLElement {
   setConfig(config) {
@@ -16,6 +19,7 @@ class WpTemperaturCard extends HTMLElement {
       energie: "sensor.wp_energiemeter_energie",
       temperatur: ["sensor.wp_aussentemperatur_gefiltert", "sensor.wp_aussentemperatur"],
       tage: 90, min_kwh: 1, ab: null,
+      wind: "sensor.wind_aussen", feuchte: "sensor.luftfeuchte_aussen", wind_grenze: 30,
     }, config || {});
     if (typeof this._config.temperatur === "string") this._config.temperatur = [this._config.temperatur];
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
@@ -50,7 +54,7 @@ class WpTemperaturCard extends HTMLElement {
       const res = await this._hass.callWS({
         type: "recorder/statistics_during_period",
         start_time: start.toISOString(), end_time: ende.toISOString(),
-        statistic_ids: [c.energie, ...c.temperatur], period: "day",
+        statistic_ids: [c.energie, ...c.temperatur, c.wind, c.feuchte].filter(Boolean), period: "day",
         types: ["change", "mean"],
       });
       const kwh = {};
@@ -59,9 +63,15 @@ class WpTemperaturCard extends HTMLElement {
       [...c.temperatur].reverse().forEach(id => {
         (res[id] || []).forEach(r => { if (r.mean != null) temp[this._tag(r.start)] = r.mean; });
       });
+      const mittel = id => {
+        const m = {};
+        if (id) (res[id] || []).forEach(r => { if (r.mean != null) m[this._tag(r.start)] = r.mean; });
+        return m;
+      };
+      const wind = mittel(c.wind), feuchte = mittel(c.feuchte);
       const punkte = Object.keys(kwh).sort()
         .filter(d => temp[d] != null && kwh[d] >= c.min_kwh && (!c.ab || d >= c.ab))
-        .map(d => ({ d, t: temp[d], e: kwh[d] }));
+        .map(d => ({ d, t: temp[d], e: kwh[d], w: wind[d], f: feuchte[d] }));
       this._daten = punkte;
     } catch (err) {
       this._fehler = String(err && err.message || err);
@@ -112,9 +122,11 @@ class WpTemperaturCard extends HTMLElement {
     const neu = p.length ? p[p.length - 1].d : "";
     const wt = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
     const lbl = d => { const z = new Date(d + "T12:00:00"); return `${wt[z.getDay()]} ${z.getDate()}.${z.getMonth() + 1}.`; };
+    const windig = r => r.w != null && r.w >= this._config.wind_grenze;
+    const wetter = r => `${r.w != null ? `, Wind Ø ${this._fmt(r.w, 0)} km/h` : ""}${r.f != null ? `, Feuchte Ø ${this._fmt(r.f, 0)} %` : ""}`;
     const punkte = p.map((r, i) => {
       const alter = (p.length - 1 - i) / Math.max(1, p.length - 1);
-      return `<circle cx="${x(r.t)}" cy="${y(r.e)}" r="${r.d === neu ? 6 : 4.5}" class="pt${r.d === neu ? " neu" : ""}" style="opacity:${(1 - alter * 0.55).toFixed(2)}"><title>${lbl(r.d)}: ${this._fmt(r.e, 1)} kWh bei Ø ${this._fmt(r.t, 1)} °C</title></circle>`;
+      return `<circle cx="${x(r.t)}" cy="${y(r.e)}" r="${r.d === neu ? 6 : 4.5}" class="pt${r.d === neu ? " neu" : ""}${windig(r) ? " windig" : ""}" style="opacity:${(1 - alter * 0.55).toFixed(2)}"><title>${lbl(r.d)}: ${this._fmt(r.e, 1)} kWh bei Ø ${this._fmt(r.t, 1)} °C${wetter(r)}</title></circle>`;
     }).join("");
     const kenn = fit ? `
       <div class="kz"><div class="k"><b>${this._fmt(-fit.m, 1)} kWh</b><span>mehr pro Grad kälter</span></div>
@@ -126,7 +138,7 @@ class WpTemperaturCard extends HTMLElement {
     const tabelle = p.slice(-14).reverse().map(r => {
       const soll = fit ? Math.max(0, fit.m * r.t + fit.b) : null;
       const abw = soll ? (r.e - soll) / soll * 100 : null;
-      return `<tr><td>${lbl(r.d)}</td><td>${this._fmt(r.t, 1)} °C</td><td>${this._fmt(r.e, 1)}</td><td>${soll != null ? this._fmt(soll, 1) : "–"}</td>
+      return `<tr><td>${lbl(r.d)}</td><td>${this._fmt(r.t, 1)} °C</td><td>${r.w != null ? (windig(r) ? "💨 " : "") + this._fmt(r.w, 0) : "–"}</td><td>${r.f != null ? this._fmt(r.f, 0) + " %" : "–"}</td><td>${this._fmt(r.e, 1)}</td><td>${soll != null ? this._fmt(soll, 1) : "–"}</td>
         <td class="${abw == null ? "" : abw > 15 ? "hoch" : abw < -15 ? "tief" : ""}">${abw != null ? (abw > 0 ? "+" : "") + this._fmt(abw, 0) + " %" : ""}</td></tr>`;
     }).join("");
     this.shadowRoot.innerHTML = `
@@ -139,6 +151,7 @@ class WpTemperaturCard extends HTMLElement {
         .ax { font-size:11px; fill: var(--secondary-text-color); }
         .pt { fill:#3a86ff; stroke: var(--card-background-color, #1c1c1c); stroke-width:1.5; }
         .pt.neu { fill:#ffb703; }
+        .pt.windig { stroke:#ff7043; stroke-width:3; }
         .trend { stroke:#ff9e80; stroke-width:2; stroke-dasharray:6 4; }
         .kz { display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:8px; margin-top:10px; }
         .k { background: var(--secondary-background-color, rgba(127,127,127,.1)); border-radius:8px; padding:8px 10px; }
@@ -155,11 +168,11 @@ class WpTemperaturCard extends HTMLElement {
       </style>
       <ha-card>
         <div class="title">${titel}</div>
-        <div class="sub">Jeder Punkt ist ein Tag: Strom der Wärmepumpe (kWh/Tag) über dem Tagesmittel außen. Gestrichelt = Trend, gelb = letzter Tag.</div>
+        <div class="sub">Jeder Punkt ist ein Tag: Strom der Wärmepumpe (kWh/Tag) über dem Tagesmittel außen. Gestrichelt = Trend, gelb = letzter Tag, oranger Ring = windig (Ø ab ${this._config.wind_grenze} km/h).</div>
         <svg viewBox="0 0 ${W} ${H}">${grid}${linie}${punkte}</svg>
         ${kenn}
-        <table><tr><th>Tag</th><th>Ø außen</th><th>kWh</th><th>Trend</th><th>Abw.</th></tr>${tabelle}</table>
-        <div class="note">Abweichung rot = deutlich mehr als bei dieser Temperatur üblich (z. B. Heizstab, viel Abtauung, Heizkurve hoch), grün = deutlich weniger (z. B. viel Sonne). Nur abgeschlossene Tage${this._config.ab ? " ab " + lbl(this._config.ab) : "."}</div>
+        <table><tr><th>Tag</th><th>Ø außen</th><th>Wind</th><th>Feuchte</th><th>kWh</th><th>Trend</th><th>Abw.</th></tr>${tabelle}</table>
+        <div class="note">Abweichung rot = deutlich mehr als bei dieser Temperatur üblich (z. B. Sturm, Heizstab, viel Abtauung, Heizkurve hoch), grün = deutlich weniger (z. B. viel Sonne). Nur abgeschlossene Tage${this._config.ab ? " ab " + lbl(this._config.ab) : "."}</div>
       </ha-card>`;
   }
 }
