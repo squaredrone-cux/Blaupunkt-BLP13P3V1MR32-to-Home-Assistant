@@ -49,7 +49,16 @@ class EnergiebilanzCard extends HTMLElement {
     }));
     if (!monate) alle = this._luecken(alle);
     const alt = alle.slice(monate ? -11 : -29).reverse();
-    return [live, ...alt];
+    return [live, ...alt].map(r => this._verbrauch(r));
+  }
+
+  // Verbrauch aus Netz + PV − Einspeisung. Der Sungrow-Zähler „Gesamtverbrauch“ zählt das
+  // Laden des Akkus mit, dadurch würde Solarstrom über den Akku doppelt gezählt.
+  // Ohne PV-Wert (alte Einträge) bleibt der gemeldete Verbrauch stehen.
+  _verbrauch(r) {
+    if (!(r.p > 0) && !(r.n > 0)) return r;
+    const h = Math.max(0, r.n + r.p - r.e);
+    return Object.assign({}, r, { h: Math.round(h * 10) / 10 });
   }
 
   // Datenlücken: Fehlen Tage zwischen zwei Einträgen, enthält der Tag nach der Lücke
@@ -163,7 +172,7 @@ class EnergiebilanzCard extends HTMLElement {
         <div class="cols"><div>${monate ? "Monat" : "Tag"}</div><div>Verbrauch gesamt (kWh)</div><div class="r">Gesamt</div><div class="r" style="color:#e5383b">Netz</div></div>
         ${rows.map((r, i) => zeile(r, max, i === 0 ? "live" : (r.geschaetzt ? "geschaetzt" : ""))).join("")}
         ${zeile({ h: sum.h, n: sum.n, p: sum.p, w: sum.w }, Math.max(sum.h, vb ? sum.p : 0), "sum")}
-        <div class="note">${this._config.variante === "verbraucher" ? "Oberer Balken = Verbrauch (Wärmepumpe + übriges Haus), unterer gelber Balken = Solar-Ertrag gesamt." : "Solar = selbst genutzter Solarstrom (Verbrauch − Netzbezug)."} ${rows.some(r => r.geschaetzt) ? "≈ = Datenlücke, Zuwachs gleichmäßig auf die fehlenden Tage verteilt (geschätzt)." : ""} ${this._config.hinweis ? this._config.hinweis : ""}</div>
+        <div class="note">${this._config.variante === "verbraucher" ? "Oberer Balken = Verbrauch (Wärmepumpe + übriges Haus), unterer gelber Balken = Solar-Ertrag gesamt." : "Verbrauch = Netzbezug + PV-Ertrag − Einspeisung (Akku nur Zwischenspeicher). Solar = selbst genutzter Solarstrom."} ${rows.some(r => r.geschaetzt) ? "≈ = Datenlücke, Zuwachs gleichmäßig auf die fehlenden Tage verteilt (geschätzt)." : ""} ${this._config.hinweis ? this._config.hinweis : ""}</div>
       </ha-card>`;
   }
 }
